@@ -169,6 +169,7 @@ export default function AdminPage() {
                   校名を伏せる
                 </span>
               )}
+              <CampaignCountBadge count={school.campaigns.filter((c) => c.enabled).length} />
               {!school.isTarget && (
                 <button
                   type="button"
@@ -271,7 +272,11 @@ export default function AdminPage() {
               {school.campaigns.map((campaign, index) => (
                 <div
                   key={campaign.id}
-                  className={`rounded-lg bg-white p-3 ring-1 ${campaign.enabled ? "ring-emerald-200" : "opacity-60 ring-slate-200"}`}
+                  className={`rounded-lg border-l-4 bg-white p-3 ring-1 transition ${
+                    campaign.enabled
+                      ? "border-emerald-500 ring-emerald-200"
+                      : "border-slate-300 bg-slate-50 ring-slate-200"
+                  }`}
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -281,7 +286,14 @@ export default function AdminPage() {
                         onChange={(e) => updateCampaign(school.id, campaign.id, { enabled: e.target.checked })}
                         className="h-4 w-4 accent-emerald-700"
                       />
-                      キャンペーン {index + 1}（{campaign.enabled ? "適用中" : "停止中"}）
+                      キャンペーン {index + 1}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                          campaign.enabled ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-600"
+                        }`}
+                      >
+                        {campaign.enabled ? "● 適用中" : "○ 停止中"}
+                      </span>
                     </label>
                     <button
                       type="button"
@@ -370,6 +382,18 @@ function NumberField({
         <span className="text-slate-400">{unit}</span>
       </div>
     </label>
+  );
+}
+
+function CampaignCountBadge({ count }: { count: number }) {
+  return count > 0 ? (
+    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">
+      ● キャンペーン{count}件 適用中
+    </span>
+  ) : (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-400">
+      キャンペーンなし
+    </span>
   );
 }
 
