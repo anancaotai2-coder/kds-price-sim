@@ -6,7 +6,6 @@ import {
   PATTERN_LABELS,
   PatternId,
   PriceData,
-  ReferralType,
   SafetyPackChoice,
   calcSchoolPrice,
 } from "@/lib/pricing";
@@ -23,25 +22,23 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
   const [night, setNight] = useState(false);
   const [safetyPackEnabled, setSafetyPackEnabled] = useState(false);
   const [overLessonCount, setOverLessonCount] = useState(data.anxietyScenario.assumedOverLessonCount);
-  const [useReferral, setUseReferral] = useState(false);
-  const [referralTypeId, setReferralTypeId] = useState<string | null>(null);
+  // 紹介割引は学校ごとに内容が違うので、選択も学校ごとに独立して持つ（school.id -> 選んだ紹介割引のid）。
+  const [referralChoices, setReferralChoices] = useState<Record<string, string | null>>({});
 
   const safetyPack: SafetyPackChoice = useMemo(
     () => ({ enabled: safetyPackEnabled, overLessonCount }),
     [safetyPackEnabled, overLessonCount]
   );
 
-  const selectedReferralType: ReferralType | null = useMemo(
-    () => (useReferral ? data.referralTypes.find((t) => t.id === referralTypeId) ?? null : null),
-    [useReferral, referralTypeId, data.referralTypes]
-  );
-
   const rows = useMemo(() => {
-    const results = data.schools.map((school) => ({
-      school,
-      at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, selectedReferralType),
-      mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, selectedReferralType),
-    }));
+    const results = data.schools.map((school) => {
+      const referralId = referralChoices[school.id] ?? null;
+      return {
+        school,
+        at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, referralId),
+        mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, referralId),
+      };
+    });
 
     const minAt = Math.min(...results.map((r) => r.at.total));
     const minMt = Math.min(...results.map((r) => r.mt.total));
@@ -49,7 +46,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
     return results
       .map((r) => ({ ...r, isCheapestAt: r.at.total === minAt, isCheapestMt: r.mt.total === minMt }))
       .sort((a, b) => Number(b.school.isTarget) - Number(a.school.isTarget));
-  }, [data, pattern, attribute, night, safetyPack, selectedReferralType]);
+  }, [data, pattern, attribute, night, safetyPack, referralChoices]);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -164,51 +161,6 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
           </label>
         </div>
 
-        {data.referralTypes.length > 0 && (
-          <>
-            <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. 紹介制度を利用しますか？</p>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex overflow-hidden rounded-lg border border-slate-200">
-                {(
-                  [
-                    [false, "利用しない"],
-                    [true, "利用する"],
-                  ] as [boolean, string][]
-                ).map(([value, label]) => (
-                  <button
-                    key={String(value)}
-                    onClick={() => setUseReferral(value)}
-                    className={`px-4 py-2 text-sm font-medium transition ${
-                      useReferral === value
-                        ? "bg-emerald-700 text-white"
-                        : "bg-white text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {useReferral && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {data.referralTypes.map((type) => (
-                  <button
-                    key={type.id}
-                    onClick={() => setReferralTypeId(type.id)}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      referralTypeId === type.id
-                        ? "border-emerald-700 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
-                    }`}
-                  >
-                    {type.name || "（名称未設定）"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
       </section>
 
       <section className="flex flex-col gap-4">
@@ -234,6 +186,37 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
                 </span>
               )}
             </div>
+
+            {school.referralDiscounts.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-semibold text-slate-500">この学校の紹介制度を利用しますか？</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setReferralChoices((prev) => ({ ...prev, [school.id]: null }))}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      !referralChoices[school.id]
+                        ? "border-slate-500 bg-slate-100 text-slate-700"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                    }`}
+                  >
+                    利用しない
+                  </button>
+                  {school.referralDiscounts.map((referral) => (
+                    <button
+                      key={referral.id}
+                      onClick={() => setReferralChoices((prev) => ({ ...prev, [school.id]: referral.id }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                        referralChoices[school.id] === referral.id
+                          ? "border-emerald-700 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
+                      }`}
+                    >
+                      {referral.name || "（名称未設定）"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <PriceBlock label="AT（オートマ）" total={at.total} isCheapest={isCheapestAt} breakdown={at.breakdown} />

@@ -56,10 +56,11 @@ export interface SchoolCampaign {
   applicability: ApplicabilityFlags;
 }
 
-// 紹介割引の金額。学校ごとに、紹介の種類（ReferralType）ひとつずつに対して設定する。
-// 設定が無い種類は 0円 として扱う。
-export interface ReferralDiscountAmount {
-  typeId: string;
+// 紹介割引。学校ごとに自由に名前を付けて追加できる（例：友人紹介、サークル紹介、卒業生紹介）。
+// 他校とは独立しており、同じ名前である必要はない。
+export interface ReferralDiscount {
+  id: string;
+  name: string;
   amount: number;
 }
 
@@ -71,7 +72,7 @@ export interface School {
   hideName: boolean;
   pricing: SchoolPricing;
   campaigns: SchoolCampaign[];
-  referralDiscounts: ReferralDiscountAmount[];
+  referralDiscounts: ReferralDiscount[];
 }
 
 export interface AnxietyScenario {
@@ -83,26 +84,14 @@ export interface AnxietyScenario {
   assumedProvisionalWrittenRetestCount: number;
 }
 
-// 紹介割引の「種類」は全校共通のリスト（例：友人紹介、サークル紹介、卒業生紹介）。
-// 名前は管理者が自由に付けられ、金額は School.referralDiscounts 側で学校ごとに設定する。
-export interface ReferralType {
-  id: string;
-  name: string;
-}
-
 export interface PriceData {
   schools: School[];
   anxietyScenario: AnxietyScenario;
-  referralTypes: ReferralType[];
   updatedAt: string;
 }
 
-export function getReferralAmount(school: School, typeId: string): number {
-  return school.referralDiscounts.find((r) => r.typeId === typeId)?.amount ?? 0;
-}
-
-export function createBlankReferralType(id: string): ReferralType {
-  return { id, name: "新しい紹介割引" };
+export function createBlankReferralDiscount(id: string): ReferralDiscount {
+  return { id, name: "", amount: 0 };
 }
 
 export function createBlankSchool(id: string): School {
@@ -170,7 +159,7 @@ export function calcSchoolPrice(
   night: boolean,
   safetyPack: SafetyPackChoice,
   scenario: AnxietyScenario,
-  referralType: ReferralType | null
+  referralDiscountId: string | null
 ): PatternResult {
   const p = school.pricing;
   const safetyOn = safetyPack.enabled;
@@ -236,10 +225,10 @@ export function calcSchoolPrice(
     }
   }
 
-  if (referralType) {
-    const referralAmount = getReferralAmount(school, referralType.id);
-    if (referralAmount) {
-      breakdown.push({ label: `紹介割引（${referralType.name}）`, amount: -referralAmount });
+  if (referralDiscountId) {
+    const referral = school.referralDiscounts.find((r) => r.id === referralDiscountId);
+    if (referral?.amount) {
+      breakdown.push({ label: `紹介割引（${referral.name || "名称未設定"}）`, amount: -referral.amount });
     }
   }
 

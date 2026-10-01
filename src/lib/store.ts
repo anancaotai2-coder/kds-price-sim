@@ -96,7 +96,6 @@ const SEED_DATA: PriceData = {
     assumedGraduationRetestCount: 1,
     assumedProvisionalWrittenRetestCount: 1,
   },
-  referralTypes: [],
   updatedAt: new Date().toISOString(),
 };
 
@@ -151,7 +150,6 @@ async function saveDataToBlob(data: PriceData): Promise<void> {
 function normalize(data: PriceData): PriceData {
   return {
     ...data,
-    referralTypes: data.referralTypes ?? [],
     anxietyScenario: {
       ...data.anxietyScenario,
       overLessonChoiceMax: Math.max(
