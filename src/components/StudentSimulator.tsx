@@ -6,6 +6,7 @@ import {
   PATTERN_LABELS,
   PatternId,
   PriceData,
+  ReferralType,
   SafetyPackChoice,
   calcSchoolPrice,
 } from "@/lib/pricing";
@@ -22,17 +23,24 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
   const [night, setNight] = useState(false);
   const [safetyPackEnabled, setSafetyPackEnabled] = useState(false);
   const [overLessonCount, setOverLessonCount] = useState(data.anxietyScenario.assumedOverLessonCount);
+  const [useReferral, setUseReferral] = useState(false);
+  const [referralTypeId, setReferralTypeId] = useState<string | null>(null);
 
   const safetyPack: SafetyPackChoice = useMemo(
     () => ({ enabled: safetyPackEnabled, overLessonCount }),
     [safetyPackEnabled, overLessonCount]
   );
 
+  const selectedReferralType: ReferralType | null = useMemo(
+    () => (useReferral ? data.referralTypes.find((t) => t.id === referralTypeId) ?? null : null),
+    [useReferral, referralTypeId, data.referralTypes]
+  );
+
   const rows = useMemo(() => {
     const results = data.schools.map((school) => ({
       school,
-      at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario),
-      mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario),
+      at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, selectedReferralType),
+      mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, selectedReferralType),
     }));
 
     const minAt = Math.min(...results.map((r) => r.at.total));
@@ -41,7 +49,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
     return results
       .map((r) => ({ ...r, isCheapestAt: r.at.total === minAt, isCheapestMt: r.mt.total === minMt }))
       .sort((a, b) => Number(b.school.isTarget) - Number(a.school.isTarget));
-  }, [data, pattern, attribute, night, safetyPack]);
+  }, [data, pattern, attribute, night, safetyPack, selectedReferralType]);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -155,6 +163,52 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
             夜間コースを希望する
           </label>
         </div>
+
+        {data.referralTypes.length > 0 && (
+          <>
+            <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. 紹介制度を利用しますか？</p>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex overflow-hidden rounded-lg border border-slate-200">
+                {(
+                  [
+                    [false, "利用しない"],
+                    [true, "利用する"],
+                  ] as [boolean, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={String(value)}
+                    onClick={() => setUseReferral(value)}
+                    className={`px-4 py-2 text-sm font-medium transition ${
+                      useReferral === value
+                        ? "bg-emerald-700 text-white"
+                        : "bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {useReferral && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {data.referralTypes.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setReferralTypeId(type.id)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      referralTypeId === type.id
+                        ? "border-emerald-700 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-700"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
+                    }`}
+                  >
+                    {type.name || "（名称未設定）"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       <section className="flex flex-col gap-4">

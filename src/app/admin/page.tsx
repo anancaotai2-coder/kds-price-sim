@@ -9,10 +9,17 @@ import {
   SchoolCampaign,
   SchoolPricing,
   createBlankCampaign,
+  createBlankReferralType,
   createBlankSchool,
+  getReferralAmount,
 } from "@/lib/pricing";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+// Date.now() だけだと同一ミリ秒内の連続操作でIDが衝突することがあるため、乱数を混ぜる。
+function uid(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export default function AdminPage() {
   const [data, setData] = useState<PriceData | null>(null);
@@ -54,7 +61,7 @@ export default function AdminPage() {
   function addCampaign(schoolId: string) {
     const school = data!.schools.find((s) => s.id === schoolId)!;
     updateSchool(schoolId, {
-      campaigns: [...school.campaigns, createBlankCampaign(`campaign-${Date.now()}`)],
+      campaigns: [...school.campaigns, createBlankCampaign(uid("campaign"))],
     });
   }
 
@@ -67,10 +74,49 @@ export default function AdminPage() {
     setData((prev) => (prev ? { ...prev, anxietyScenario: { ...prev.anxietyScenario, ...patch } } : prev));
   }
 
+  function addReferralType() {
+    setData((prev) =>
+      prev ? { ...prev, referralTypes: [...prev.referralTypes, createBlankReferralType(uid("referral"))] } : prev
+    );
+  }
+
+  function renameReferralType(typeId: string, name: string) {
+    setData((prev) =>
+      prev
+        ? { ...prev, referralTypes: prev.referralTypes.map((t) => (t.id === typeId ? { ...t, name } : t)) }
+        : prev
+    );
+  }
+
+  function removeReferralType(typeId: string) {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            referralTypes: prev.referralTypes.filter((t) => t.id !== typeId),
+            // 削除された種類の金額設定も、各校から合わせて取り除く。
+            schools: prev.schools.map((s) => ({
+              ...s,
+              referralDiscounts: s.referralDiscounts.filter((r) => r.typeId !== typeId),
+            })),
+          }
+        : prev
+    );
+  }
+
+  function updateReferralAmount(schoolId: string, typeId: string, amount: number) {
+    const school = data!.schools.find((s) => s.id === schoolId)!;
+    const exists = school.referralDiscounts.some((r) => r.typeId === typeId);
+    const referralDiscounts = exists
+      ? school.referralDiscounts.map((r) => (r.typeId === typeId ? { ...r, amount } : r))
+      : [...school.referralDiscounts, { typeId, amount }];
+    updateSchool(schoolId, { referralDiscounts });
+  }
+
   function addSchool() {
     setData((prev) => {
       if (!prev) return prev;
-      const id = `school-${Date.now()}`;
+      const id = uid("school");
       return { ...prev, schools: [...prev.schools, createBlankSchool(id)] };
     });
   }
@@ -142,6 +188,47 @@ export default function AdminPage() {
             value={data.anxietyScenario.assumedProvisionalWrittenRetestCount}
             onChange={(v) => updateScenario({ assumedProvisionalWrittenRetestCount: v })}
           />
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 className="font-bold text-slate-900">紹介割引の種類（全校共通）</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          ここで追加した種類が、生徒画面の「紹介制度を利用する」で選択肢として表示されます。実際の割引額は学校ごとに下の各校カードで設定します。
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          {data.referralTypes.length === 0 && (
+            <p className="text-xs text-slate-500">紹介割引の種類はまだありません。</p>
+          )}
+          {data.referralTypes.map((type) => (
+            <div key={type.id} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={type.name}
+                onChange={(e) => renameReferralType(type.id, e.target.value)}
+                placeholder="例：サークル紹介"
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`「${type.name || "この種類"}」を削除しますか？（各校の金額設定も削除されます）`)) {
+                    removeReferralType(type.id);
+                  }
+                }}
+                className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                削除
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addReferralType}
+            className="rounded-lg border border-dashed border-slate-300 bg-white py-2 text-sm font-semibold text-slate-500 hover:border-emerald-400 hover:text-emerald-700"
+          >
+            ＋ 紹介割引の種類を追加する
+          </button>
         </div>
       </section>
 
@@ -330,6 +417,27 @@ export default function AdminPage() {
               >
                 ＋ キャンペーンを追加する
               </button>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-700">紹介割引額</p>
+              {data.referralTypes.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  紹介割引の種類がまだありません。上の「紹介割引の種類（全校共通）」から追加してください。
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {data.referralTypes.map((type) => (
+                    <NumberField
+                      key={type.id}
+                      label={type.name || "（名称未設定）"}
+                      unit="円"
+                      value={getReferralAmount(school, type.id)}
+                      onChange={(v) => updateReferralAmount(school.id, type.id, v)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </details>
