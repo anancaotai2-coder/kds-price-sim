@@ -280,6 +280,26 @@ export default function AdminPage() {
               </div>
 
               <div>
+                <p className="mb-1 text-xs font-medium text-slate-500">
+                  同時入校割引（1人あたり。生徒画面の「同時入校はされますか？」で選ばれた人数に応じて適用）
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="2人で同時入校"
+                    unit="円"
+                    value={school.pricing.groupDiscount2}
+                    onChange={(v) => updatePricing(school.id, { groupDiscount2: v })}
+                  />
+                  <NumberField
+                    label="3人以上で同時入校"
+                    unit="円"
+                    value={school.pricing.groupDiscount3Plus}
+                    onChange={(v) => updatePricing(school.id, { groupDiscount3Plus: v })}
+                  />
+                </div>
+              </div>
+
+              <div>
                 <p className="mb-1 text-xs font-medium text-slate-500">紹介割引（この学校だけの設定です）</p>
                 {school.referralDiscounts.length === 0 && (
                   <p className="text-xs text-slate-500">紹介割引はまだありません。</p>
@@ -322,7 +342,7 @@ export default function AdminPage() {
               </div>
 
               <TextField
-                label="注釈（任意・学生割引・紹介割引まとめて1つ、生徒画面のカード下に表示されます）"
+                label="注釈（任意・学生割引・同時入校割引・紹介割引まとめて1つ、生徒画面のカード下に表示されます）"
                 value={school.pricing.discountNote}
                 onChange={(v) => updatePricing(school.id, { discountNote: v })}
               />

@@ -44,11 +44,16 @@ export interface SchoolPricing {
   freeProvisionalWrittenRetestCount: number;
   studentDiscount: number;
   studentDiscountApplicability: ApplicabilityFlags;
+  // 同時入校割引（1人あたりの割引額）。生徒が選んだ同時入校の人数に応じて適用される。
+  groupDiscount2: number;
+  groupDiscount3Plus: number;
   // 「基本料金」ブロック全体に対する注釈（例：表示価格は税込です、など）。
   pricingNote: string;
-  // 「割引額」ブロック（学生割引＋紹介割引）全体に対する注釈。
+  // 「割引額」ブロック（学生割引＋同時入校割引＋紹介割引）全体に対する注釈。
   discountNote: string;
 }
+
+export type GroupSize = "none" | "two" | "threePlus";
 
 export interface SchoolCampaign {
   id: string;
@@ -122,6 +127,8 @@ export function createBlankSchool(id: string): School {
       freeProvisionalWrittenRetestCount: 0,
       studentDiscount: 0,
       studentDiscountApplicability: defaultApplicability(),
+      groupDiscount2: 0,
+      groupDiscount3Plus: 0,
       pricingNote: "",
       discountNote: "",
     },
@@ -168,7 +175,8 @@ export function calcSchoolPrice(
   night: boolean,
   safetyPack: SafetyPackChoice,
   scenario: AnxietyScenario,
-  referralDiscountId: string | null
+  referralDiscountId: string | null,
+  groupSize: GroupSize
 ): PatternResult {
   const p = school.pricing;
   const safetyOn = safetyPack.enabled;
@@ -186,33 +194,53 @@ export function calcSchoolPrice(
     breakdown.push({ label: "短期集中コース加算", amount: p.shortTermSurcharge });
   }
 
-  if (safetyOn) {
-    if (p.safeCourseSurcharge) {
-      breakdown.push({ label: "安心パック加算", amount: p.safeCourseSurcharge });
+  // 安心パックを「付けた場合」と「付けず都度の補習料金で払う場合」の追加費用を作る。
+  // 安心パックに含まれる無料回数（freeXxxCount）は、付けた場合にだけ効く。
+  const buildSafetyItems = (withPack: boolean): BreakdownItem[] => {
+    const items: BreakdownItem[] = [];
+    if (withPack && p.safeCourseSurcharge) {
+      items.push({ label: "安心パック加算", amount: p.safeCourseSurcharge });
     }
 
-    const freeOver = p.freeOverLessonCount + couponCount;
+    const freeOver = (withPack ? p.freeOverLessonCount : 0) + couponCount;
     const overNeeded = Math.max(0, safetyPack.overLessonCount - freeOver);
     if (overNeeded > 0) {
-      breakdown.push({ label: `技能オーバー教習 ${overNeeded}回分`, amount: overNeeded * p.overLessonFee });
+      items.push({
+        label: withPack ? `技能オーバー教習 ${overNeeded}回分` : `補習料金 ${overNeeded}時限分`,
+        amount: overNeeded * p.overLessonFee,
+      });
     }
 
-    const freeSkill = p.freeSkillRetestCount + retestCount;
+    const freeSkill = (withPack ? p.freeSkillRetestCount : 0) + retestCount;
     const skillNeeded = Math.max(0, scenario.assumedSkillRetestCount - freeSkill);
     if (skillNeeded > 0) {
-      breakdown.push({ label: `修了検定再受験 ${skillNeeded}回分`, amount: skillNeeded * p.skillRetestFee });
+      items.push({ label: `修了検定再受験 ${skillNeeded}回分`, amount: skillNeeded * p.skillRetestFee });
     }
 
-    const freeGrad = p.freeGraduationRetestCount + retestCount;
+    const freeGrad = (withPack ? p.freeGraduationRetestCount : 0) + retestCount;
     const gradNeeded = Math.max(0, scenario.assumedGraduationRetestCount - freeGrad);
     if (gradNeeded > 0) {
-      breakdown.push({ label: `卒業検定再受験 ${gradNeeded}回分`, amount: gradNeeded * p.graduationRetestFee });
+      items.push({ label: `卒業検定再受験 ${gradNeeded}回分`, amount: gradNeeded * p.graduationRetestFee });
     }
 
-    const freeWritten = p.freeProvisionalWrittenRetestCount;
+    const freeWritten = withPack ? p.freeProvisionalWrittenRetestCount : 0;
     const writtenNeeded = Math.max(0, scenario.assumedProvisionalWrittenRetestCount - freeWritten);
     if (writtenNeeded > 0) {
-      breakdown.push({ label: `仮免学科再受験 ${writtenNeeded}回分`, amount: writtenNeeded * p.provisionalWrittenRetestFee });
+      items.push({ label: `仮免学科再受験 ${writtenNeeded}回分`, amount: writtenNeeded * p.provisionalWrittenRetestFee });
+    }
+    return items;
+  };
+
+  if (safetyOn) {
+    const withPack = buildSafetyItems(true);
+    // 安心パック料金が設定されている学校は、安い方を自動で表示する（同額なら補習料金）。
+    // 安心パック料金が無い学校は、従来どおり「付けた場合」の計算のみ。
+    if (p.safeCourseSurcharge > 0) {
+      const payPerLesson = buildSafetyItems(false);
+      const sum = (items: BreakdownItem[]) => items.reduce((s, i) => s + i.amount, 0);
+      breakdown.push(...(sum(withPack) < sum(payPerLesson) ? withPack : payPerLesson));
+    } else {
+      breakdown.push(...withPack);
     }
   }
 
@@ -226,6 +254,16 @@ export function calcSchoolPrice(
     isApplicable(p.studentDiscountApplicability, pattern, safetyOn)
   ) {
     breakdown.push({ label: "学生割引", amount: -p.studentDiscount });
+  }
+
+  if (groupSize !== "none") {
+    const groupAmount = groupSize === "two" ? p.groupDiscount2 : p.groupDiscount3Plus;
+    if (groupAmount) {
+      breakdown.push({
+        label: `同時入校割引（${groupSize === "two" ? "2人" : "3人以上"}）`,
+        amount: -groupAmount,
+      });
+    }
   }
 
   for (const c of activeCampaigns) {

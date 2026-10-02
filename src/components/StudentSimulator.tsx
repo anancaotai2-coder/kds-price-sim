@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Attribute,
+  GroupSize,
   PATTERN_LABELS,
   PatternId,
   PriceData,
@@ -22,6 +23,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
   const [night, setNight] = useState(false);
   const [safetyPackEnabled, setSafetyPackEnabled] = useState(false);
   const [overLessonCount, setOverLessonCount] = useState(data.anxietyScenario.assumedOverLessonCount);
+  const [groupSize, setGroupSize] = useState<GroupSize>("none");
   // 紹介割引は学校ごとに内容が違うので、選択も学校ごとに独立して持つ（school.id -> 選んだ紹介割引のid）。
   const [referralChoices, setReferralChoices] = useState<Record<string, string | null>>({});
 
@@ -35,8 +37,8 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
       const referralId = referralChoices[school.id] ?? null;
       return {
         school,
-        at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, referralId),
-        mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, referralId),
+        at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, referralId, groupSize),
+        mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, referralId, groupSize),
       };
     });
 
@@ -46,7 +48,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
     return results
       .map((r) => ({ ...r, isCheapestAt: r.at.total === minAt, isCheapestMt: r.mt.total === minMt }))
       .sort((a, b) => Number(b.school.isTarget) - Number(a.school.isTarget));
-  }, [data, pattern, attribute, night, safetyPack, referralChoices]);
+  }, [data, pattern, attribute, night, safetyPack, referralChoices, groupSize]);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -161,9 +163,35 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
           </label>
         </div>
 
+        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. 同時入校はされますか？</p>
+        <p className="mb-3 -mt-2 text-xs text-slate-500">
+          ご友人・ご家族など、同じ時期に一緒に入校する人数（ご自身を含む）を選んでください。
+        </p>
+        <div className="flex overflow-hidden rounded-lg border border-slate-200 sm:inline-flex">
+          {(
+            [
+              ["none", "無し"],
+              ["two", "2人"],
+              ["threePlus", "3人以上"],
+            ] as [GroupSize, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setGroupSize(value)}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition sm:flex-none ${
+                groupSize === value
+                  ? "bg-emerald-700 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {data.schools.some((s) => s.referralDiscounts.length > 0) && (
           <>
-            <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. 紹介者はいますか？</p>
+            <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">5. 紹介者はいますか？</p>
             <div className="flex flex-col gap-3">
               {data.schools
                 .filter((s) => s.referralDiscounts.length > 0)
@@ -263,6 +291,10 @@ function PriceBlock({
   isCheapest: boolean;
   breakdown: { label: string; amount: number }[];
 }) {
+  // 割引（マイナスの行）は最初から見える形で出し、それ以外は「内訳を見る」の中に入れる。
+  const discounts = breakdown.filter((item) => item.amount < 0);
+  const charges = breakdown.filter((item) => item.amount >= 0);
+
   return (
     <div className="rounded-xl bg-white/70 p-4 ring-1 ring-slate-100">
       <div className="flex items-center justify-between">
@@ -274,13 +306,25 @@ function PriceBlock({
         )}
       </div>
       <p className="mt-1 text-2xl font-bold text-slate-900">{formatYen(total)}</p>
+
+      {discounts.length > 0 && (
+        <ul className="mt-2 space-y-1 rounded-lg bg-orange-50 px-3 py-2 text-xs">
+          {discounts.map((item, i) => (
+            <li key={i} className="flex justify-between gap-2 font-medium text-orange-700">
+              <span>{item.label}</span>
+              <span className="whitespace-nowrap">−{formatYen(-item.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <details className="mt-2">
         <summary className="cursor-pointer text-xs text-emerald-700">内訳を見る</summary>
         <ul className="mt-2 space-y-1 text-xs text-slate-600">
-          {breakdown.map((item, i) => (
+          {charges.map((item, i) => (
             <li key={i} className="flex justify-between">
               <span>{item.label}</span>
-              <span>{item.amount < 0 ? "" : "+"}{formatYen(item.amount)}</span>
+              <span>+{formatYen(item.amount)}</span>
             </li>
           ))}
         </ul>
