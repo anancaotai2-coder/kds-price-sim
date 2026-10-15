@@ -1,8 +1,28 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { ApplicabilityFlags, PriceData, School, SchoolCampaign, defaultApplicability } from "./pricing";
+import {
+  ApplicabilityFlags,
+  PriceData,
+  ReferralAmounts,
+  ReferralType,
+  School,
+  SchoolCampaign,
+  blankReferralAmounts,
+  defaultApplicability,
+} from "./pricing";
 
 type LegacyCampaign = Omit<SchoolCampaign, "id" | "enabled" | "applicability">;
+// 旧形式の紹介割引（学校ごとに自由な名前で登録していたもの）。
+type LegacyReferralDiscount = { id: string; name: string; amount: number };
+
+// 旧形式の紹介割引の名前から、固定の紹介種類を推定するためのキーワード。
+const LEGACY_REFERRAL_KEYWORDS: [ReferralType, string[]][] = [
+  ["circle", ["サークル"]],
+  ["friend", ["友達", "友人"]],
+  ["family", ["家族"]],
+  ["coop", ["生協"]],
+  ["greenCampus", ["グリーン"]],
+];
 
 const DATA_FILE = path.join(process.cwd(), "data", "schools.json");
 const BLOB_PATHNAME = "schools.json";
@@ -34,11 +54,12 @@ const SEED_DATA: PriceData = {
         studentDiscountApplicability: defaultApplicability(),
         groupDiscount2: 0,
         groupDiscount3Plus: 0,
+        mopedFee: 0,
         pricingNote: "",
         discountNote: "",
       },
       campaigns: [],
-      referralDiscounts: [],
+      referralAmounts: blankReferralAmounts(),
     },
     {
       id: "school-a",
@@ -64,11 +85,12 @@ const SEED_DATA: PriceData = {
         studentDiscountApplicability: defaultApplicability(),
         groupDiscount2: 0,
         groupDiscount3Plus: 0,
+        mopedFee: 0,
         pricingNote: "",
         discountNote: "",
       },
       campaigns: [],
-      referralDiscounts: [],
+      referralAmounts: blankReferralAmounts(),
     },
     {
       id: "school-b",
@@ -94,16 +116,17 @@ const SEED_DATA: PriceData = {
         studentDiscountApplicability: defaultApplicability(),
         groupDiscount2: 0,
         groupDiscount3Plus: 0,
+        mopedFee: 0,
         pricingNote: "",
         discountNote: "",
       },
       campaigns: [],
-      referralDiscounts: [],
+      referralAmounts: blankReferralAmounts(),
     },
   ],
   anxietyScenario: {
-    overLessonChoiceMax: 10,
-    assumedOverLessonCount: 3,
+    overLessonChoiceMax: 20,
+    assumedOverLessonCount: 12,
     assumedSkillRetestCount: 1,
     assumedGraduationRetestCount: 1,
     assumedProvisionalWrittenRetestCount: 1,
@@ -173,7 +196,11 @@ function normalize(data: PriceData): PriceData {
     },
     schools: data.schools.map((saved) => {
       // 旧形式（1校1キャンペーン）の `campaign` を `campaigns` 配列へ移行する。
-      const { campaign: legacy, ...school } = saved as School & { campaign?: LegacyCampaign };
+      const {
+        campaign: legacy,
+        referralDiscounts: legacyReferrals,
+        ...school
+      } = saved as School & { campaign?: LegacyCampaign; referralDiscounts?: LegacyReferralDiscount[] };
       const campaigns: SchoolCampaign[] = (
         school.campaigns ??
         (legacy && (legacy.label || legacy.freeCouponCount || legacy.freeRetestCount || legacy.extraDiscount)
@@ -183,7 +210,9 @@ function normalize(data: PriceData): PriceData {
       return {
         ...school,
         campaigns,
-        referralDiscounts: school.referralDiscounts ?? [],
+        referralAmounts: school.referralAmounts
+          ? { ...blankReferralAmounts(), ...school.referralAmounts }
+          : migrateLegacyReferrals(legacyReferrals ?? []),
         hideName: school.hideName ?? !school.isTarget,
         pricing: {
           ...school.pricing,
@@ -191,12 +220,23 @@ function normalize(data: PriceData): PriceData {
           studentDiscountApplicability: normalizeApplicability(school.pricing.studentDiscountApplicability),
           groupDiscount2: school.pricing.groupDiscount2 ?? 0,
           groupDiscount3Plus: school.pricing.groupDiscount3Plus ?? 0,
+          mopedFee: school.pricing.mopedFee ?? 0,
           pricingNote: school.pricing.pricingNote ?? "",
           discountNote: school.pricing.discountNote ?? "",
         },
       };
     }),
   };
+}
+
+// 名前から種類が推定できない旧データは引き継がれない（管理画面で入力し直す）。
+function migrateLegacyReferrals(legacy: LegacyReferralDiscount[]): ReferralAmounts {
+  const amounts = blankReferralAmounts();
+  for (const r of legacy) {
+    const match = LEGACY_REFERRAL_KEYWORDS.find(([, words]) => words.some((w) => r.name.includes(w)));
+    if (match && !amounts[match[0]]) amounts[match[0]] = r.amount;
+  }
+  return amounts;
 }
 
 function normalizeApplicability(flags?: Partial<ApplicabilityFlags>): ApplicabilityFlags {

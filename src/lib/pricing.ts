@@ -1,5 +1,7 @@
 export type SchoolId = string;
+// 料金計算上のベースプラン。クイック20・30を選ぶと "fast"（短期集中）、選ばなければ "normal"。
 export type PatternId = "fast" | "normal";
+export type QuickPlan = "none" | "quick20" | "quick30";
 export type LicenseType = "AT" | "MT";
 export type Attribute = "general" | "student";
 
@@ -47,6 +49,8 @@ export interface SchoolPricing {
   // 同時入校割引（1人あたりの割引額）。生徒が選んだ同時入校の人数に応じて適用される。
   groupDiscount2: number;
   groupDiscount3Plus: number;
+  // 原付講習の加算額。生徒がオプションで「原付講習を希望する」を選んだときに加算される。
+  mopedFee: number;
   // 「基本料金」ブロック全体に対する注釈（例：表示価格は税込です、など）。
   pricingNote: string;
   // 「割引額」ブロック（学生割引＋同時入校割引＋紹介割引）全体に対する注釈。
@@ -66,12 +70,21 @@ export interface SchoolCampaign {
   note: string;
 }
 
-// 紹介割引。学校ごとに自由に名前を付けて追加できる（例：友人紹介、サークル紹介、卒業生紹介）。
-// 他校とは独立しており、同じ名前である必要はない。
-export interface ReferralDiscount {
-  id: string;
-  name: string;
-  amount: number;
+// 紹介の種類は全校共通で固定。割引額は学校ごとに設定する（0円ならその学校では割引なし）。
+export type ReferralType = "circle" | "friend" | "family" | "coop" | "greenCampus";
+
+export const REFERRAL_TYPES: { id: ReferralType; label: string }[] = [
+  { id: "circle", label: "サークルの紹介" },
+  { id: "friend", label: "友達からの紹介" },
+  { id: "family", label: "家族からの紹介" },
+  { id: "coop", label: "生協（学生生協）からの紹介" },
+  { id: "greenCampus", label: "グリーンキャンパスからの紹介" },
+];
+
+export type ReferralAmounts = Record<ReferralType, number>;
+
+export function blankReferralAmounts(): ReferralAmounts {
+  return { circle: 0, friend: 0, family: 0, coop: 0, greenCampus: 0 };
 }
 
 export interface School {
@@ -82,7 +95,7 @@ export interface School {
   hideName: boolean;
   pricing: SchoolPricing;
   campaigns: SchoolCampaign[];
-  referralDiscounts: ReferralDiscount[];
+  referralAmounts: ReferralAmounts;
 }
 
 export interface AnxietyScenario {
@@ -98,10 +111,6 @@ export interface PriceData {
   schools: School[];
   anxietyScenario: AnxietyScenario;
   updatedAt: string;
-}
-
-export function createBlankReferralDiscount(id: string): ReferralDiscount {
-  return { id, name: "", amount: 0 };
 }
 
 export function createBlankSchool(id: string): School {
@@ -129,11 +138,12 @@ export function createBlankSchool(id: string): School {
       studentDiscountApplicability: defaultApplicability(),
       groupDiscount2: 0,
       groupDiscount3Plus: 0,
+      mopedFee: 0,
       pricingNote: "",
       discountNote: "",
     },
     campaigns: [],
-    referralDiscounts: [],
+    referralAmounts: blankReferralAmounts(),
   };
 }
 
@@ -167,17 +177,25 @@ export interface SafetyPackChoice {
   overLessonCount: number;
 }
 
+// 生徒画面で選ばれた条件（AT/MT以外）。
+export interface StudentChoice {
+  attribute: Attribute;
+  referralType: ReferralType | null;
+  groupSize: GroupSize;
+  quick: QuickPlan;
+  moped: boolean;
+  night: boolean;
+  safetyPack: SafetyPackChoice;
+}
+
 export function calcSchoolPrice(
   school: School,
-  pattern: PatternId,
   license: LicenseType,
-  attribute: Attribute,
-  night: boolean,
-  safetyPack: SafetyPackChoice,
-  scenario: AnxietyScenario,
-  referralDiscountId: string | null,
-  groupSize: GroupSize
+  choice: StudentChoice,
+  scenario: AnxietyScenario
 ): PatternResult {
+  const { attribute, referralType, groupSize, quick, moped, night, safetyPack } = choice;
+  const pattern: PatternId = quick === "none" ? "normal" : "fast";
   const p = school.pricing;
   const safetyOn = safetyPack.enabled;
   const activeCampaigns = school.campaigns.filter(
@@ -190,8 +208,11 @@ export function calcSchoolPrice(
   const base = license === "AT" ? p.baseAT : p.baseMT;
   breakdown.push({ label: "基本料金", amount: base });
 
-  if (pattern === "fast" && p.shortTermSurcharge) {
-    breakdown.push({ label: "短期集中コース加算", amount: p.shortTermSurcharge });
+  if (quick !== "none" && p.shortTermSurcharge) {
+    breakdown.push({
+      label: `短期集中コース加算（${QUICK_PLAN_LABELS[quick]}）`,
+      amount: p.shortTermSurcharge,
+    });
   }
 
   // 安心パックを「付けた場合」と「付けず都度の補習料金で払う場合」の追加費用を作る。
@@ -244,6 +265,10 @@ export function calcSchoolPrice(
     }
   }
 
+  if (moped && p.mopedFee) {
+    breakdown.push({ label: "原付講習", amount: p.mopedFee });
+  }
+
   if (night && p.nightSurcharge) {
     breakdown.push({ label: "夜間料金加算", amount: p.nightSurcharge });
   }
@@ -272,10 +297,11 @@ export function calcSchoolPrice(
     }
   }
 
-  if (referralDiscountId) {
-    const referral = school.referralDiscounts.find((r) => r.id === referralDiscountId);
-    if (referral?.amount) {
-      breakdown.push({ label: `紹介割引（${referral.name || "名称未設定"}）`, amount: -referral.amount });
+  if (referralType) {
+    const amount = school.referralAmounts[referralType];
+    if (amount) {
+      const label = REFERRAL_TYPES.find((r) => r.id === referralType)!.label;
+      breakdown.push({ label: `紹介割引（${label}）`, amount: -amount });
     }
   }
 
@@ -292,7 +318,7 @@ export function calcSchoolPrice(
   return { license, total, breakdown, notes };
 }
 
-export const PATTERN_LABELS: Record<PatternId, { title: string; subtitle: string }> = {
-  fast: { title: "最短で取りたい人", subtitle: "短期集中コースで一気に卒業したいタイプ" },
-  normal: { title: "一般的に通いたい人", subtitle: "順調に進んだ場合の標準的な通い方" },
+export const QUICK_PLAN_LABELS: Record<Exclude<QuickPlan, "none">, string> = {
+  quick20: "クイック20",
+  quick30: "クイック30",
 };

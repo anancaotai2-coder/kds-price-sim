@@ -5,12 +5,11 @@ import {
   AnxietyScenario,
   ApplicabilityFlags,
   PriceData,
-  ReferralDiscount,
+  REFERRAL_TYPES,
   School,
   SchoolCampaign,
   SchoolPricing,
   createBlankCampaign,
-  createBlankReferralDiscount,
   createBlankSchool,
 } from "@/lib/pricing";
 
@@ -72,25 +71,6 @@ export default function AdminPage() {
 
   function updateScenario(patch: Partial<AnxietyScenario>) {
     setData((prev) => (prev ? { ...prev, anxietyScenario: { ...prev.anxietyScenario, ...patch } } : prev));
-  }
-
-  function addReferralDiscount(schoolId: string) {
-    const school = data!.schools.find((s) => s.id === schoolId)!;
-    updateSchool(schoolId, {
-      referralDiscounts: [...school.referralDiscounts, createBlankReferralDiscount(uid("referral"))],
-    });
-  }
-
-  function updateReferralDiscount(schoolId: string, discountId: string, patch: Partial<ReferralDiscount>) {
-    const school = data!.schools.find((s) => s.id === schoolId)!;
-    updateSchool(schoolId, {
-      referralDiscounts: school.referralDiscounts.map((r) => (r.id === discountId ? { ...r, ...patch } : r)),
-    });
-  }
-
-  function removeReferralDiscount(schoolId: string, discountId: string) {
-    const school = data!.schools.find((s) => s.id === schoolId)!;
-    updateSchool(schoolId, { referralDiscounts: school.referralDiscounts.filter((r) => r.id !== discountId) });
   }
 
   function addSchool() {
@@ -248,8 +228,9 @@ export default function AdminPage() {
                 <NumberField label="通常料金 AT" unit="円" value={school.pricing.baseAT} onChange={(v) => updatePricing(school.id, { baseAT: v })} />
                 <NumberField label="通常料金 MT" unit="円" value={school.pricing.baseMT} onChange={(v) => updatePricing(school.id, { baseMT: v })} />
                 <NumberField label="夜間料金加算" unit="円" value={school.pricing.nightSurcharge} onChange={(v) => updatePricing(school.id, { nightSurcharge: v })} />
-                <NumberField label="短期集中コース加算" unit="円" value={school.pricing.shortTermSurcharge} onChange={(v) => updatePricing(school.id, { shortTermSurcharge: v })} />
+                <NumberField label="短期集中コース加算（クイック20・30）" unit="円" value={school.pricing.shortTermSurcharge} onChange={(v) => updatePricing(school.id, { shortTermSurcharge: v })} />
                 <NumberField label="安心パック加算" unit="円" value={school.pricing.safeCourseSurcharge ?? 0} onChange={(v) => updatePricing(school.id, { safeCourseSurcharge: v })} />
+                <NumberField label="原付講習" unit="円" value={school.pricing.mopedFee} onChange={(v) => updatePricing(school.id, { mopedFee: v })} />
               </div>
               <div className="mt-2">
                 <TextField
@@ -300,45 +281,22 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <p className="mb-1 text-xs font-medium text-slate-500">紹介割引（この学校だけの設定です）</p>
-                {school.referralDiscounts.length === 0 && (
-                  <p className="text-xs text-slate-500">紹介割引はまだありません。</p>
-                )}
-                <div className="flex flex-col gap-2">
-                  {school.referralDiscounts.map((referral) => (
-                    <div key={referral.id} className="flex items-end gap-2">
-                      <TextField
-                        label="名称（例：サークル紹介）"
-                        value={referral.name}
-                        onChange={(v) => updateReferralDiscount(school.id, referral.id, { name: v })}
-                      />
-                      <NumberField
-                        label="割引額"
-                        unit="円"
-                        value={referral.amount}
-                        onChange={(v) => updateReferralDiscount(school.id, referral.id, { amount: v })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`「${referral.name || "この紹介割引"}」を削除しますか？`)) {
-                            removeReferralDiscount(school.id, referral.id);
-                          }
-                        }}
-                        className="rounded-lg px-2 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        削除
-                      </button>
-                    </div>
+                <p className="mb-1 text-xs font-medium text-slate-500">
+                  紹介割引（紹介の種類ごとの割引額。0円の種類はこの学校では割引なし）
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {REFERRAL_TYPES.map(({ id, label }) => (
+                    <NumberField
+                      key={id}
+                      label={label}
+                      unit="円"
+                      value={school.referralAmounts[id]}
+                      onChange={(v) =>
+                        updateSchool(school.id, { referralAmounts: { ...school.referralAmounts, [id]: v } })
+                      }
+                    />
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addReferralDiscount(school.id)}
-                  className="mt-2 w-full rounded-lg border border-dashed border-sky-400 bg-white py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100"
-                >
-                  ＋ 紹介割引を追加する
-                </button>
               </div>
 
               <TextField
@@ -525,7 +483,7 @@ function ApplicabilityEditor({
   onChange: (v: ApplicabilityFlags) => void;
 }) {
   const options: { key: keyof ApplicabilityFlags; label: string }[] = [
-    { key: "fast", label: "最短プラン" },
+    { key: "fast", label: "クイック20・30" },
     { key: "normal", label: "一般プラン" },
     { key: "safetyPack", label: "安心パック利用時" },
   ];

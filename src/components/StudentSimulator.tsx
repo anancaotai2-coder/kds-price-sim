@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import {
   Attribute,
   GroupSize,
-  PATTERN_LABELS,
-  PatternId,
   PriceData,
-  SafetyPackChoice,
+  QUICK_PLAN_LABELS,
+  QuickPlan,
+  REFERRAL_TYPES,
+  ReferralType,
+  StudentChoice,
   calcSchoolPrice,
 } from "@/lib/pricing";
 
@@ -15,32 +17,38 @@ function formatYen(amount: number): string {
   return `${amount.toLocaleString("ja-JP")}円`;
 }
 
-const PATTERN_ORDER: PatternId[] = ["fast", "normal"];
+const QUICK_ORDER: Exclude<QuickPlan, "none">[] = ["quick20", "quick30"];
 
 export default function StudentSimulator({ data }: { data: PriceData }) {
-  const [pattern, setPattern] = useState<PatternId>("normal");
   const [attribute, setAttribute] = useState<Attribute>("general");
+  const [hasReferral, setHasReferral] = useState(false);
+  const [referralType, setReferralType] = useState<ReferralType | null>(null);
+  const [groupSize, setGroupSize] = useState<GroupSize>("none");
+  const [quick, setQuick] = useState<QuickPlan>("none");
+  const [moped, setMoped] = useState(false);
   const [night, setNight] = useState(false);
   const [safetyPackEnabled, setSafetyPackEnabled] = useState(false);
   const [overLessonCount, setOverLessonCount] = useState(data.anxietyScenario.assumedOverLessonCount);
-  const [groupSize, setGroupSize] = useState<GroupSize>("none");
-  // 紹介割引は学校ごとに内容が違うので、選択も学校ごとに独立して持つ（school.id -> 選んだ紹介割引のid）。
-  const [referralChoices, setReferralChoices] = useState<Record<string, string | null>>({});
 
-  const safetyPack: SafetyPackChoice = useMemo(
-    () => ({ enabled: safetyPackEnabled, overLessonCount }),
-    [safetyPackEnabled, overLessonCount]
+  const choice: StudentChoice = useMemo(
+    () => ({
+      attribute,
+      referralType: hasReferral ? referralType : null,
+      groupSize,
+      quick,
+      moped,
+      night,
+      safetyPack: { enabled: safetyPackEnabled, overLessonCount },
+    }),
+    [attribute, hasReferral, referralType, groupSize, quick, moped, night, safetyPackEnabled, overLessonCount]
   );
 
   const rows = useMemo(() => {
-    const results = data.schools.map((school) => {
-      const referralId = referralChoices[school.id] ?? null;
-      return {
-        school,
-        at: calcSchoolPrice(school, pattern, "AT", attribute, night, safetyPack, data.anxietyScenario, referralId, groupSize),
-        mt: calcSchoolPrice(school, pattern, "MT", attribute, night, safetyPack, data.anxietyScenario, referralId, groupSize),
-      };
-    });
+    const results = data.schools.map((school) => ({
+      school,
+      at: calcSchoolPrice(school, "AT", choice, data.anxietyScenario),
+      mt: calcSchoolPrice(school, "MT", choice, data.anxietyScenario),
+    }));
 
     const minAt = Math.min(...results.map((r) => r.at.total));
     const minMt = Math.min(...results.map((r) => r.mt.total));
@@ -48,7 +56,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
     return results
       .map((r) => ({ ...r, isCheapestAt: r.at.total === minAt, isCheapestMt: r.mt.total === minMt }))
       .sort((a, b) => Number(b.school.isTarget) - Number(a.school.isTarget));
-  }, [data, pattern, attribute, night, safetyPack, referralChoices, groupSize]);
+  }, [data, choice]);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -63,53 +71,80 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
       </header>
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <p className="mb-3 text-sm font-semibold text-slate-700">1. 通い方を選ぶ</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {PATTERN_ORDER.map((id) => {
-            const label = PATTERN_LABELS[id];
-            const active = pattern === id;
-            return (
-              <button
-                key={id}
-                onClick={() => setPattern(id)}
-                className={`rounded-xl border px-4 py-3 text-left transition ${
-                  active
-                    ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700"
-                    : "border-slate-200 bg-white hover:border-emerald-300"
-                }`}
-              >
-                <p className="font-semibold text-slate-900">{label.title}</p>
-                <p className="mt-1 text-xs text-slate-500">{label.subtitle}</p>
-              </button>
-            );
-          })}
+        <p className="mb-3 text-sm font-semibold text-slate-700">1. あなたについて教えてください</p>
+        <SegmentedControl
+          options={[
+            ["general", "一般"],
+            ["student", "学生"],
+          ]}
+          value={attribute}
+          onChange={setAttribute}
+        />
+
+        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">2. 紹介者はいらっしゃいますか？</p>
+        <SegmentedControl
+          options={[
+            [false, "いいえ"],
+            [true, "はい"],
+          ]}
+          value={hasReferral}
+          onChange={setHasReferral}
+        />
+        {hasReferral && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {REFERRAL_TYPES.map(({ id, label }) => (
+              <ChipButton key={id} active={referralType === id} onClick={() => setReferralType(id)}>
+                {label}
+              </ChipButton>
+            ))}
+          </div>
+        )}
+
+        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">3. 同時入校される方はいますか？</p>
+        <p className="mb-3 -mt-2 text-xs text-slate-500">
+          ご友人・ご家族など、同じ時期に一緒に入校する人数（ご自身を含む）を選んでください。
+        </p>
+        <SegmentedControl
+          options={[
+            ["none", "無し"],
+            ["two", "2人"],
+            ["threePlus", "3人以上"],
+          ]}
+          value={groupSize}
+          onChange={setGroupSize}
+        />
+
+        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. オプションをつけられますか？</p>
+        <p className="mb-3 -mt-2 text-xs text-slate-500">
+          当てはまるものをすべて選んでください（クイック20・クイック30はどちらか一方のみ）。
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_ORDER.map((id) => (
+            <ChipButton key={id} active={quick === id} onClick={() => setQuick(quick === id ? "none" : id)}>
+              {QUICK_PLAN_LABELS[id]}
+            </ChipButton>
+          ))}
+          <ChipButton active={moped} onClick={() => setMoped(!moped)}>
+            原付講習を希望する
+          </ChipButton>
+          <ChipButton active={night} onClick={() => setNight(!night)}>
+            夜間教習を希望する
+          </ChipButton>
         </div>
 
-        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">2. 安心パックをつけますか？</p>
+        <p className="mb-3 mt-5 text-sm font-semibold text-slate-700">安心パックをつけますか？</p>
         <p className="mb-3 -mt-2 text-xs text-slate-500">
           技能教習が延びたり、検定に落ちてしまった場合の追加費用も見込んだ金額で比較したいときに選んでください。
         </p>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex overflow-hidden rounded-lg border border-slate-200">
-            {(
-              [
-                [false, "つけない"],
-                [true, "つける"],
-              ] as [boolean, string][]
-            ).map(([value, label]) => (
-              <button
-                key={String(value)}
-                onClick={() => setSafetyPackEnabled(value)}
-                className={`px-4 py-2 text-sm font-medium transition ${
-                  safetyPackEnabled === value
-                    ? "bg-emerald-700 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={[
+              [false, "つけない"],
+              [true, "つける"],
+            ]}
+            value={safetyPackEnabled}
+            onChange={setSafetyPackEnabled}
+          />
 
           {safetyPackEnabled && (
             <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -128,106 +163,6 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
             </label>
           )}
         </div>
-
-        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">3. あなたについて教えてください</p>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex overflow-hidden rounded-lg border border-slate-200">
-            {(
-              [
-                ["general", "一般"],
-                ["student", "学生"],
-              ] as [Attribute, string][]
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setAttribute(value)}
-                className={`px-4 py-2 text-sm font-medium transition ${
-                  attribute === value
-                    ? "bg-emerald-700 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={night}
-              onChange={(e) => setNight(e.target.checked)}
-              className="h-4 w-4 accent-emerald-700"
-            />
-            夜間コースを希望する
-          </label>
-        </div>
-
-        <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">4. 同時入校はされますか？</p>
-        <p className="mb-3 -mt-2 text-xs text-slate-500">
-          ご友人・ご家族など、同じ時期に一緒に入校する人数（ご自身を含む）を選んでください。
-        </p>
-        <div className="flex overflow-hidden rounded-lg border border-slate-200 sm:inline-flex">
-          {(
-            [
-              ["none", "無し"],
-              ["two", "2人"],
-              ["threePlus", "3人以上"],
-            ] as [GroupSize, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setGroupSize(value)}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition sm:flex-none ${
-                groupSize === value
-                  ? "bg-emerald-700 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {data.schools.some((s) => s.referralDiscounts.length > 0) && (
-          <>
-            <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">5. 紹介者はいますか？</p>
-            <div className="flex flex-col gap-3">
-              {data.schools
-                .filter((s) => s.referralDiscounts.length > 0)
-                .map((school) => (
-                  <div key={school.id}>
-                    <p className="mb-1 text-xs font-semibold text-slate-500">{school.name}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setReferralChoices((prev) => ({ ...prev, [school.id]: null }))}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                          !referralChoices[school.id]
-                            ? "border-slate-500 bg-slate-100 text-slate-700"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                        }`}
-                      >
-                        利用しない
-                      </button>
-                      {school.referralDiscounts.map((referral) => (
-                        <button
-                          key={referral.id}
-                          onClick={() => setReferralChoices((prev) => ({ ...prev, [school.id]: referral.id }))}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                            referralChoices[school.id] === referral.id
-                              ? "border-emerald-700 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-700"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
-                          }`}
-                        >
-                          {referral.name || "（名称未設定）"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </>
-        )}
       </section>
 
       <section className="flex flex-col gap-4">
@@ -277,6 +212,55 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
         最終更新: {new Date(data.updatedAt).toLocaleString("ja-JP")}
       </p>
     </main>
+  );
+}
+
+function SegmentedControl<T extends string | boolean>({
+  options,
+  value,
+  onChange,
+}: {
+  options: [T, string][];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-slate-200 sm:inline-flex">
+      {options.map(([optionValue, label]) => (
+        <button
+          key={String(optionValue)}
+          onClick={() => onChange(optionValue)}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition sm:flex-none ${
+            value === optionValue ? "bg-emerald-700 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ChipButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "border-emerald-700 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-700"
+          : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
