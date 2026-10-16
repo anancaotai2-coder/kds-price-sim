@@ -34,7 +34,11 @@ export interface SchoolPricing {
   baseAT: number;
   baseMT: number;
   nightSurcharge: number;
-  shortTermSurcharge: number;
+  // 学生は夜間料金が無料になる学校かどうか。
+  nightFreeForStudents: boolean;
+  // 短期集中コース（クイック20・クイック30）の加算額。
+  quick20Surcharge: number;
+  quick30Surcharge: number;
   safeCourseSurcharge: number;
   overLessonFee: number;
   skillRetestFee: number;
@@ -124,7 +128,9 @@ export function createBlankSchool(id: string): School {
       baseAT: 0,
       baseMT: 0,
       nightSurcharge: 0,
-      shortTermSurcharge: 0,
+      nightFreeForStudents: true,
+      quick20Surcharge: 0,
+      quick30Surcharge: 0,
       safeCourseSurcharge: 0,
       overLessonFee: 0,
       skillRetestFee: 0,
@@ -208,11 +214,11 @@ export function calcSchoolPrice(
   const base = license === "AT" ? p.baseAT : p.baseMT;
   breakdown.push({ label: "基本料金", amount: base });
 
-  if (quick !== "none" && p.shortTermSurcharge) {
-    breakdown.push({
-      label: `短期集中コース加算（${QUICK_PLAN_LABELS[quick]}）`,
-      amount: p.shortTermSurcharge,
-    });
+  if (quick !== "none") {
+    const quickAmount = quick === "quick20" ? p.quick20Surcharge : p.quick30Surcharge;
+    if (quickAmount) {
+      breakdown.push({ label: `短期集中コース加算（${QUICK_PLAN_LABELS[quick]}）`, amount: quickAmount });
+    }
   }
 
   // 安心パックを「付けた場合」と「付けず都度の補習料金で払う場合」の追加費用を作る。
@@ -269,7 +275,7 @@ export function calcSchoolPrice(
     breakdown.push({ label: "原付講習", amount: p.mopedFee });
   }
 
-  if (night && p.nightSurcharge) {
+  if (night && p.nightSurcharge && !(attribute === "student" && p.nightFreeForStudents)) {
     breakdown.push({ label: "夜間料金加算", amount: p.nightSurcharge });
   }
 

@@ -40,7 +40,9 @@ const SEED_DATA: PriceData = {
         baseAT: 335000,
         baseMT: 353000,
         nightSurcharge: 27000,
-        shortTermSurcharge: 22000,
+        nightFreeForStudents: true,
+        quick20Surcharge: 22000,
+        quick30Surcharge: 22000,
         safeCourseSurcharge: 0,
         overLessonFee: 6000,
         skillRetestFee: 5500,
@@ -71,7 +73,9 @@ const SEED_DATA: PriceData = {
         baseAT: 340000,
         baseMT: 358000,
         nightSurcharge: 25000,
-        shortTermSurcharge: 20000,
+        nightFreeForStudents: true,
+        quick20Surcharge: 20000,
+        quick30Surcharge: 20000,
         safeCourseSurcharge: 0,
         overLessonFee: 6000,
         skillRetestFee: 6000,
@@ -102,7 +106,9 @@ const SEED_DATA: PriceData = {
         baseAT: 330000,
         baseMT: 348000,
         nightSurcharge: 26000,
-        shortTermSurcharge: 25000,
+        nightFreeForStudents: true,
+        quick20Surcharge: 25000,
+        quick30Surcharge: 25000,
         safeCourseSurcharge: 0,
         overLessonFee: 5500,
         skillRetestFee: 5000,
@@ -201,6 +207,10 @@ function normalize(data: PriceData): PriceData {
         referralDiscounts: legacyReferrals,
         ...school
       } = saved as School & { campaign?: LegacyCampaign; referralDiscounts?: LegacyReferralDiscount[] };
+      // 旧形式の「短期集中コース加算」（クイック20・30共通）は、両方の初期値として引き継ぐ。
+      const { shortTermSurcharge: legacyShortTerm, ...pricing } = school.pricing as School["pricing"] & {
+        shortTermSurcharge?: number;
+      };
       const campaigns: SchoolCampaign[] = (
         school.campaigns ??
         (legacy && (legacy.label || legacy.freeCouponCount || legacy.freeRetestCount || legacy.extraDiscount)
@@ -215,7 +225,10 @@ function normalize(data: PriceData): PriceData {
           : migrateLegacyReferrals(legacyReferrals ?? []),
         hideName: school.hideName ?? !school.isTarget,
         pricing: {
-          ...school.pricing,
+          ...pricing,
+          nightFreeForStudents: pricing.nightFreeForStudents ?? true,
+          quick20Surcharge: pricing.quick20Surcharge ?? legacyShortTerm ?? 0,
+          quick30Surcharge: pricing.quick30Surcharge ?? legacyShortTerm ?? 0,
           safeCourseSurcharge: school.pricing.safeCourseSurcharge ?? 0,
           studentDiscountApplicability: normalizeApplicability(school.pricing.studentDiscountApplicability),
           groupDiscount2: school.pricing.groupDiscount2 ?? 0,
