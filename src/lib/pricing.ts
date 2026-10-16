@@ -275,8 +275,12 @@ export function calcSchoolPrice(
     breakdown.push({ label: "原付講習", amount: p.mopedFee });
   }
 
-  if (night && p.nightSurcharge && !(attribute === "student" && p.nightFreeForStudents)) {
+  if (night && p.nightSurcharge) {
     breakdown.push({ label: "夜間料金加算", amount: p.nightSurcharge });
+    // 学生の夜間料金無料は、加算を消すのではなく同額の割引として見せる（割引欄に表示されるように）。
+    if (attribute === "student" && p.nightFreeForStudents) {
+      breakdown.push({ label: "学生 夜間料金無料", amount: -p.nightSurcharge });
+    }
   }
 
   if (
