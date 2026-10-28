@@ -227,16 +227,16 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col bg-white px-4 pb-8 pt-4">
       <div className="flex items-center justify-between text-xs text-slate-500">
-        <button onClick={goBack} className="-ml-2 rounded-lg px-2 py-2 font-medium text-emerald-700 active:bg-emerald-50">
+        <button onClick={goBack} className="-ml-2 rounded-lg px-2 py-2 font-medium text-orange-600 active:bg-orange-50">
           ‹ 戻る
         </button>
         <span className="font-semibold">
-          <span className="text-emerald-700">Q{index + 1}</span> / {visible.length}
+          <span className="text-orange-600">Q{index + 1}</span> / {visible.length}
         </span>
       </div>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-emerald-600 transition-all duration-300"
+          className="h-full rounded-full bg-orange-500 transition-all duration-300"
           style={{ width: `${(index / visible.length) * 100}%` }}
         />
       </div>
@@ -256,8 +256,8 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
                   q.grid ? "flex aspect-square flex-col items-center justify-center px-1 text-center" : "px-5 py-4"
                 } ${
                   selected
-                    ? "border-emerald-600 bg-emerald-50"
-                    : "border-slate-200 bg-white active:border-emerald-400 active:bg-emerald-50"
+                    ? "border-orange-500 bg-orange-50"
+                    : "border-slate-200 bg-white active:border-orange-300 active:bg-orange-50"
                 }`}
               >
                 <span className={`block font-bold text-slate-900 ${q.grid ? "text-lg" : "text-base"}`}>
@@ -280,34 +280,32 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
 
 function Intro({ targetName, questionCount, onStart }: { targetName: string; questionCount: number; onStart: () => void }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col bg-emerald-900 px-6 pb-10 pt-16 text-white">
-      <p className="text-xs font-semibold tracking-widest text-emerald-300">{targetName}</p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col bg-orange-600 px-6 pb-10 pt-16 text-white">
+      <p className="text-xs font-semibold tracking-widest text-orange-100">{targetName}</p>
       <h1 className="mt-3 text-3xl font-bold leading-tight">
-        かんたん
-        <br />
-        料金シミュレーター
+        教習料金シミュレーター
       </h1>
-      <p className="mt-4 text-sm leading-relaxed text-emerald-100">
+      <p className="mt-4 text-sm leading-relaxed text-orange-50">
         質問に答えるだけで、あなたの通い方に合わせた料金と、近隣校との比較がわかります。
       </p>
       <ul className="mt-8 space-y-3 text-sm">
         <li className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-800 font-bold">✓</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 font-bold">✓</span>
           全{questionCount}問前後・約1分
         </li>
         <li className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-800 font-bold">✓</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 font-bold">✓</span>
           タップするだけで回答できます
         </li>
         <li className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-800 font-bold">✓</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 font-bold">✓</span>
           学割・紹介割引なども自動で反映
         </li>
       </ul>
       <div className="mt-auto pt-10">
         <button
           onClick={onStart}
-          className="w-full rounded-2xl bg-orange-500 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] active:bg-orange-600"
+          className="w-full rounded-2xl bg-white py-4 text-lg font-bold text-orange-600 shadow-lg transition active:scale-[0.98] active:bg-orange-50"
         >
           スタート
         </button>
@@ -360,16 +358,16 @@ function Result({
   return (
     <main className="animate-question-in mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col gap-5 bg-slate-50 px-4 pb-10 pt-6">
       <div className="text-center">
-        <p className="text-xs font-semibold tracking-widest text-emerald-700">シミュレーション結果</p>
+        <p className="text-xs font-semibold tracking-widest text-orange-600">シミュレーション結果</p>
         <p className="mt-1 text-sm text-slate-500">
           {license === "AT" ? "AT（オートマ）" : "MT（マニュアル）"}の場合
         </p>
       </div>
 
-      <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-2 ring-emerald-700">
-        <div className="bg-emerald-900 px-5 py-5 text-white">
+      <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-2 ring-orange-600">
+        <div className="bg-orange-600 px-5 py-5 text-white">
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold">当校</span>
+            <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-bold">当校</span>
             <p className="text-sm font-semibold">{target.school.name}</p>
           </div>
           <p className="mt-2 text-4xl font-bold tracking-tight">
@@ -377,12 +375,12 @@ function Result({
             <span className="ml-1 text-lg">円</span>
           </p>
           {isCheapest && maxSaving > 0 && (
-            <p className="mt-3 inline-block rounded-full bg-orange-500 px-3 py-1 text-sm font-bold">
+            <p className="mt-3 inline-block rounded-full bg-white px-3 py-1 text-sm font-bold text-orange-600">
               近隣校より最大 {formatYen(maxSaving)} お得！
             </p>
           )}
           {isCheapest && maxSaving === 0 && others.length > 0 && (
-            <p className="mt-3 inline-block rounded-full bg-orange-500 px-3 py-1 text-sm font-bold">近隣校と同額で最安</p>
+            <p className="mt-3 inline-block rounded-full bg-white px-3 py-1 text-sm font-bold text-orange-600">近隣校と同額で最安</p>
           )}
         </div>
 
@@ -405,7 +403,7 @@ function Result({
           )}
 
           <details className="mt-3">
-            <summary className="cursor-pointer py-1 text-sm font-medium text-emerald-700">料金の内訳を見る</summary>
+            <summary className="cursor-pointer py-1 text-sm font-medium text-orange-600">料金の内訳を見る</summary>
             <ul className="mt-2 space-y-1 text-xs text-slate-600">
               {charges.map((item, i) => (
                 <li key={i} className="flex justify-between gap-2">
@@ -431,7 +429,7 @@ function Result({
                 <li
                   key={school.id}
                   className={`rounded-2xl px-4 py-3 ring-1 ${
-                    isTarget ? "bg-emerald-50 ring-2 ring-emerald-700" : "bg-white ring-slate-200"
+                    isTarget ? "bg-orange-50 ring-2 ring-orange-600" : "bg-white ring-slate-200"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -445,7 +443,7 @@ function Result({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-900">
                         {school.name}
-                        {isTarget && <span className="ml-1 text-xs text-emerald-700">（当校）</span>}
+                        {isTarget && <span className="ml-1 text-xs text-orange-600">（当校）</span>}
                       </p>
                       {!isTarget && diff !== 0 && (
                         <p className={`text-xs ${diff > 0 ? "text-slate-500" : "text-slate-400"}`}>
@@ -458,7 +456,7 @@ function Result({
                   </div>
                   {!isTarget && (
                     <details className="mt-1 pl-10">
-                      <summary className="cursor-pointer text-xs text-emerald-700">内訳を見る</summary>
+                      <summary className="cursor-pointer text-xs text-orange-600">内訳を見る</summary>
                       <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
                         {result.breakdown.map((item, j) => (
                           <li key={j} className={`flex justify-between gap-2 ${item.amount < 0 ? "text-orange-700" : ""}`}>
@@ -488,7 +486,7 @@ function Result({
               <button onClick={() => onEdit(q.key)} className="flex w-full items-center justify-between gap-2 py-2.5 text-left text-sm">
                 <span className="text-slate-500">{q.summaryLabel}</span>
                 <span className="font-medium text-slate-900">
-                  {optionLabel(q, answers[q.key])} <span className="text-emerald-700">›</span>
+                  {optionLabel(q, answers[q.key])} <span className="text-orange-600">›</span>
                 </span>
               </button>
             </li>
@@ -498,7 +496,7 @@ function Result({
 
       <button
         onClick={onRestart}
-        className="w-full rounded-2xl border-2 border-emerald-700 bg-white py-3.5 font-bold text-emerald-700 transition active:bg-emerald-50"
+        className="w-full rounded-2xl border-2 border-orange-600 bg-white py-3.5 font-bold text-orange-600 transition active:bg-orange-50"
       >
         最初からやり直す
       </button>
