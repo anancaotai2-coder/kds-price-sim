@@ -40,3 +40,17 @@ body {
     }
   }
 }
+
+/* スマホ版シミュレーター（/sp）のスタート画面で道路を走る車 */
+@theme {
+  --animate-car-drive: car-drive 6s linear infinite;
+
+  @keyframes car-drive {
+    from {
+      left: -15%;
+    }
+    to {
+      left: 105%;
+    }
+  }
+}
