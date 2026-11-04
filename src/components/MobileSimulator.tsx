@@ -225,14 +225,7 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
   const goBack = () => (index === 0 ? setScreen({ kind: "intro" }) : setScreen({ kind: "question", key: visible[index - 1].key }));
 
   return (
-    <Shell
-      targetName={targetName}
-      headerRight={
-        <button onClick={goBack} className="rounded-full px-3 py-1.5 text-xs font-bold text-slate-500 active:bg-slate-100">
-          ‹ 戻る
-        </button>
-      }
-    >
+    <Shell targetName={targetName}>
       <div className="mt-2 flex items-baseline justify-between">
         <SectionLabel>QUESTION {String(index + 1).padStart(2, "0")}</SectionLabel>
         <span className="text-xs font-bold text-slate-400">
@@ -287,6 +280,14 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
             );
           })}
         </div>
+
+        {/* 戻るは選択肢のすぐ下に置き、親指で押しやすくする。 */}
+        <button
+          onClick={goBack}
+          className="mx-auto mt-6 rounded-full border border-slate-200 bg-white px-8 py-3 text-sm font-bold text-slate-500 shadow-sm transition active:bg-slate-100"
+        >
+          ‹ 戻る
+        </button>
       </section>
     </Shell>
   );
