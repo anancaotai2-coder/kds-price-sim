@@ -4,6 +4,7 @@ import {
   ApplicabilityFlags,
   PriceData,
   ReferralAmounts,
+  ReferralPerk,
   ReferralPerks,
   ReferralType,
   School,
@@ -230,7 +231,10 @@ function normalize(data: PriceData): PriceData {
         campaigns,
         referralAmounts,
         referralPerks: school.referralPerks
-          ? { coop: school.referralPerks.coop ?? [], greenCampus: school.referralPerks.greenCampus ?? [] }
+          ? {
+              coop: normalizePerks(school.referralPerks.coop),
+              greenCampus: normalizePerks(school.referralPerks.greenCampus),
+            }
           : migrateToReferralPerks(school.isTarget, referralAmounts),
         hideName: school.hideName ?? !school.isTarget,
         pricing: {
@@ -266,8 +270,18 @@ function migrateLegacyReferrals(legacy: LegacyReferralDiscount[]): ReferralAmoun
 function migrateToReferralPerks(isTarget: boolean, amounts: ReferralAmounts): ReferralPerks {
   if (isTarget) return defaultTargetReferralPerks();
   const fromAmount = (type: "coop" | "greenCampus") =>
-    amounts[type] ? [{ id: `${type}-perk-1`, text: "紹介割引", discount: amounts[type] }] : [];
+    amounts[type] ? [{ id: `${type}-perk-1`, text: "紹介割引", discount: amounts[type], lessonTickets: 0 }] : [];
   return { coop: fromAmount("coop"), greenCampus: fromAmount("greenCampus") };
+}
+
+// チケット回数が無い保存データの補完。初期設定のグリーンキャンパス「追加技能教習チケット5回分」は5回として引き継ぐ。
+function normalizePerks(perks: Partial<ReferralPerk>[] | undefined): ReferralPerk[] {
+  return (perks ?? []).map((perk, i) => ({
+    id: perk.id ?? `perk-${i + 1}`,
+    text: perk.text ?? "",
+    discount: perk.discount ?? 0,
+    lessonTickets: perk.lessonTickets ?? (perk.id === "green-perk-3" ? 5 : 0),
+  }));
 }
 
 function normalizeApplicability(flags?: Partial<ApplicabilityFlags>): ApplicabilityFlags {

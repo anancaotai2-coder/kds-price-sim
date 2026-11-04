@@ -107,6 +107,16 @@ export interface ReferralPerk {
   text: string;
   // この特典で料金から差し引く額。0円なら表示のみ（電子マネー・お買い物券など）。
   discount: number;
+  // 追加技能教習のチケット回数。教習料金からは引かず、「技能オーバー1回」の単価×回数を
+  // 「◯円分お得」として特典欄にだけ表示する。
+  lessonTickets: number;
+}
+
+// 生徒画面に出す紹介特典1件分。value は「◯円分お得」として見せる金額（割引額＋チケット換算額）。
+export interface PerkResult {
+  text: string;
+  discount: number;
+  ticketValue: number;
 }
 
 export type ReferralPerks = Record<PerkReferralType, ReferralPerk[]>;
@@ -119,14 +129,14 @@ export function blankReferralPerks(): ReferralPerks {
 export function defaultTargetReferralPerks(): ReferralPerks {
   return {
     coop: [
-      { id: "coop-perk-1", text: "1万円の割引", discount: 10000 },
-      { id: "coop-perk-2", text: "技能保証の乗り放題（追加費用なし）", discount: 0 },
-      { id: "coop-perk-3", text: "2万円分の電子マネーをチャージ", discount: 0 },
+      { id: "coop-perk-1", text: "1万円の割引", discount: 10000, lessonTickets: 0 },
+      { id: "coop-perk-2", text: "技能保証の乗り放題（追加費用なし）", discount: 0, lessonTickets: 0 },
+      { id: "coop-perk-3", text: "2万円分の電子マネーをチャージ", discount: 0, lessonTickets: 0 },
     ],
     greenCampus: [
-      { id: "green-perk-1", text: "2万円の割引", discount: 20000 },
-      { id: "green-perk-2", text: "グリーンキャンパスお買い物券1万円分", discount: 0 },
-      { id: "green-perk-3", text: "追加技能教習チケット5回分サービス", discount: 0 },
+      { id: "green-perk-1", text: "2万円の割引", discount: 20000, lessonTickets: 0 },
+      { id: "green-perk-2", text: "グリーンキャンパスお買い物券1万円分", discount: 0, lessonTickets: 0 },
+      { id: "green-perk-3", text: "追加技能教習チケット5回分サービス", discount: 0, lessonTickets: 5 },
     ],
   };
 }
@@ -219,7 +229,7 @@ export interface PatternResult {
   breakdown: BreakdownItem[];
   notes: string[];
   // 紹介特典（大学生協・グリーンキャンパス）の一覧。割引額のある特典も含めて全部並べる。
-  perks: string[];
+  perks: PerkResult[];
 }
 
 export interface SafetyPackChoice {
@@ -351,12 +361,13 @@ export function calcSchoolPrice(
     }
   }
 
-  const perks: string[] = [];
+  const perks: PerkResult[] = [];
   if (referralType && isPerkReferralType(referralType)) {
     for (const perk of school.referralPerks[referralType]) {
-      if (!perk.text.trim() && !perk.discount) continue;
+      if (!perk.text.trim() && !perk.discount && !perk.lessonTickets) continue;
       const text = perk.text.trim() || "紹介特典";
-      perks.push(text);
+      // チケットは教習料金（total）には含めず、お得額としてだけ見せる。
+      perks.push({ text, discount: perk.discount, ticketValue: perk.lessonTickets * p.overLessonFee });
       if (perk.discount) {
         breakdown.push({ label: `紹介特典：${text}`, amount: -perk.discount });
       }

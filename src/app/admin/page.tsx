@@ -508,14 +508,14 @@ function ReferralPerksEditor({
     <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
       <p className="text-xs font-semibold text-slate-700">{label}の特典</p>
       <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
-        特典の内容は自由に書けます。「割引額」に入れた金額だけ料金から差し引かれます（0円なら表示のみ）。
+        特典の内容は自由に書けます。「円引」は教習料金から差し引かれます。「チケット」は追加技能教習の回数で、教習料金には含めず「技能オーバー1回の単価×回数」を「◯円分お得」として表示します。
       </p>
       {perks.length === 0 && <p className="mb-2 text-xs text-slate-400">特典なし（この学校では対象外）</p>}
       <ol className="flex flex-col gap-2">
         {perks.map((perk, i) => (
           <li key={perk.id} className="flex items-start gap-2">
             <span className="mt-2 w-4 shrink-0 text-xs font-bold text-slate-400">{i + 1}.</span>
-            <div className="grid flex-1 grid-cols-[1fr_7rem] gap-2">
+            <div className="grid flex-1 grid-cols-[1fr_7rem_5.5rem] gap-2">
               <input
                 type="text"
                 value={perk.text}
@@ -533,6 +533,17 @@ function ReferralPerksEditor({
                 />
                 <span className="text-xs text-slate-400">円引</span>
               </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={perk.lessonTickets}
+                  title="追加技能教習チケットの回数"
+                  onChange={(e) => update(perk.id, { lessonTickets: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none"
+                />
+                <span className="text-xs text-slate-400">回券</span>
+              </div>
             </div>
             <button
               onClick={() => onChange(perks.filter((p) => p.id !== perk.id))}
@@ -544,7 +555,7 @@ function ReferralPerksEditor({
         ))}
       </ol>
       <button
-        onClick={() => onChange([...perks, { id: uid("perk"), text: "", discount: 0 }])}
+        onClick={() => onChange([...perks, { id: uid("perk"), text: "", discount: 0, lessonTickets: 0 }])}
         className="mt-2 text-xs font-medium text-emerald-700 hover:underline"
       >
         ＋ 特典を追加

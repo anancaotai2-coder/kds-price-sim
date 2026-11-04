@@ -7,6 +7,7 @@ import {
   PriceData,
   QUICK_PLAN_LABELS,
   QuickPlan,
+  PerkResult,
   REFERRAL_TYPES,
   ReferralType,
   StudentChoice,
@@ -319,14 +320,25 @@ function PriceBlock({
   );
 }
 
-function PerkList({ perks }: { perks: string[] }) {
+function PerkList({ perks }: { perks: PerkResult[] }) {
   if (perks.length === 0) return null;
+  const totalValue = perks.reduce((sum, p) => sum + p.discount + p.ticketValue, 0);
   return (
     <div className="mt-3 rounded-xl border border-dashed border-orange-300 bg-orange-50/70 px-4 py-3">
-      <p className="text-xs font-bold text-orange-700">🎁 紹介特典（{perks.length}つ）</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs font-bold text-orange-700">🎁 紹介特典（{perks.length}つ）</p>
+        {totalValue > 0 && (
+          <p className="text-xs font-bold text-orange-700">特典合計 {formatYen(totalValue)}分お得</p>
+        )}
+      </div>
       <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-xs font-medium text-orange-800">
         {perks.map((perk, i) => (
-          <li key={i}>{perk}</li>
+          <li key={i}>
+            {perk.text}
+            {perk.ticketValue > 0 && (
+              <span className="ml-1 font-bold">（{formatYen(perk.ticketValue)}分お得・教習料金には含みません）</span>
+            )}
+          </li>
         ))}
       </ol>
     </div>
