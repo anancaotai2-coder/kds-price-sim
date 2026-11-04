@@ -81,7 +81,7 @@ export const REFERRAL_TYPES: { id: ReferralType; label: string }[] = [
   { id: "circle", label: "サークルの紹介" },
   { id: "friend", label: "友達からの紹介" },
   { id: "family", label: "家族からの紹介" },
-  { id: "coop", label: "生協（学生生協）からの紹介" },
+  { id: "coop", label: "大学生協からの紹介" },
   { id: "greenCampus", label: "グリーンキャンパスからの紹介" },
 ];
 
@@ -89,6 +89,46 @@ export type ReferralAmounts = Record<ReferralType, number>;
 
 export function blankReferralAmounts(): ReferralAmounts {
   return { circle: 0, friend: 0, family: 0, coop: 0, greenCampus: 0 };
+}
+
+// 大学生協・グリーンキャンパスからの紹介は、単なる割引額ではなく「特典」を自由に複数書ける。
+// 特典ごとに割引額（0円なら料金に影響しない、表示のみの特典）を持つ。
+// これらの種類では referralAmounts は使わず、referralPerks の割引額の合計が料金に反映される。
+export type PerkReferralType = "coop" | "greenCampus";
+
+export const PERK_REFERRAL_TYPES: PerkReferralType[] = ["coop", "greenCampus"];
+
+export function isPerkReferralType(type: ReferralType): type is PerkReferralType {
+  return (PERK_REFERRAL_TYPES as ReferralType[]).includes(type);
+}
+
+export interface ReferralPerk {
+  id: string;
+  text: string;
+  // この特典で料金から差し引く額。0円なら表示のみ（電子マネー・お買い物券など）。
+  discount: number;
+}
+
+export type ReferralPerks = Record<PerkReferralType, ReferralPerk[]>;
+
+export function blankReferralPerks(): ReferralPerks {
+  return { coop: [], greenCampus: [] };
+}
+
+// 当校（KDS）の初期設定。
+export function defaultTargetReferralPerks(): ReferralPerks {
+  return {
+    coop: [
+      { id: "coop-perk-1", text: "1万円の割引", discount: 10000 },
+      { id: "coop-perk-2", text: "技能保証の乗り放題（追加費用なし）", discount: 0 },
+      { id: "coop-perk-3", text: "2万円分の電子マネーをチャージ", discount: 0 },
+    ],
+    greenCampus: [
+      { id: "green-perk-1", text: "2万円の割引", discount: 20000 },
+      { id: "green-perk-2", text: "グリーンキャンパスお買い物券1万円分", discount: 0 },
+      { id: "green-perk-3", text: "追加技能教習チケット5回分サービス", discount: 0 },
+    ],
+  };
 }
 
 export interface School {
@@ -100,6 +140,7 @@ export interface School {
   pricing: SchoolPricing;
   campaigns: SchoolCampaign[];
   referralAmounts: ReferralAmounts;
+  referralPerks: ReferralPerks;
 }
 
 export interface AnxietyScenario {
@@ -150,6 +191,7 @@ export function createBlankSchool(id: string): School {
     },
     campaigns: [],
     referralAmounts: blankReferralAmounts(),
+    referralPerks: blankReferralPerks(),
   };
 }
 
@@ -176,6 +218,8 @@ export interface PatternResult {
   total: number;
   breakdown: BreakdownItem[];
   notes: string[];
+  // 紹介特典（大学生協・グリーンキャンパス）の一覧。割引額のある特典も含めて全部並べる。
+  perks: string[];
 }
 
 export interface SafetyPackChoice {
@@ -307,7 +351,17 @@ export function calcSchoolPrice(
     }
   }
 
-  if (referralType) {
+  const perks: string[] = [];
+  if (referralType && isPerkReferralType(referralType)) {
+    for (const perk of school.referralPerks[referralType]) {
+      if (!perk.text.trim() && !perk.discount) continue;
+      const text = perk.text.trim() || "紹介特典";
+      perks.push(text);
+      if (perk.discount) {
+        breakdown.push({ label: `紹介特典：${text}`, amount: -perk.discount });
+      }
+    }
+  } else if (referralType) {
     const amount = school.referralAmounts[referralType];
     if (amount) {
       const label = REFERRAL_TYPES.find((r) => r.id === referralType)!.label;
@@ -325,7 +379,7 @@ export function calcSchoolPrice(
     if (c.note) notes.push(c.note);
   }
 
-  return { license, total, breakdown, notes };
+  return { license, total, breakdown, notes, perks };
 }
 
 export const QUICK_PLAN_LABELS: Record<Exclude<QuickPlan, "none">, string> = {

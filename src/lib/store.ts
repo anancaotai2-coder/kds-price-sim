@@ -4,11 +4,13 @@ import {
   ApplicabilityFlags,
   PriceData,
   ReferralAmounts,
+  ReferralPerks,
   ReferralType,
   School,
   SchoolCampaign,
   blankReferralAmounts,
   defaultApplicability,
+  defaultTargetReferralPerks,
 } from "./pricing";
 
 type LegacyCampaign = Omit<SchoolCampaign, "id" | "enabled" | "applicability">;
@@ -62,6 +64,7 @@ const SEED_DATA: PriceData = {
       },
       campaigns: [],
       referralAmounts: blankReferralAmounts(),
+      referralPerks: defaultTargetReferralPerks(),
     },
     {
       id: "school-a",
@@ -95,6 +98,7 @@ const SEED_DATA: PriceData = {
       },
       campaigns: [],
       referralAmounts: blankReferralAmounts(),
+      referralPerks: { coop: [], greenCampus: [] },
     },
     {
       id: "school-b",
@@ -128,6 +132,7 @@ const SEED_DATA: PriceData = {
       },
       campaigns: [],
       referralAmounts: blankReferralAmounts(),
+      referralPerks: { coop: [], greenCampus: [] },
     },
   ],
   anxietyScenario: {
@@ -217,12 +222,16 @@ function normalize(data: PriceData): PriceData {
           ? [{ id: `${school.id}-campaign-1`, enabled: true, ...legacy, applicability: defaultApplicability() }]
           : [])
       ).map((c) => ({ ...c, applicability: normalizeApplicability(c.applicability), note: c.note ?? "" }));
+      const referralAmounts = school.referralAmounts
+        ? { ...blankReferralAmounts(), ...school.referralAmounts }
+        : migrateLegacyReferrals(legacyReferrals ?? []);
       return {
         ...school,
         campaigns,
-        referralAmounts: school.referralAmounts
-          ? { ...blankReferralAmounts(), ...school.referralAmounts }
-          : migrateLegacyReferrals(legacyReferrals ?? []),
+        referralAmounts,
+        referralPerks: school.referralPerks
+          ? { coop: school.referralPerks.coop ?? [], greenCampus: school.referralPerks.greenCampus ?? [] }
+          : migrateToReferralPerks(school.isTarget, referralAmounts),
         hideName: school.hideName ?? !school.isTarget,
         pricing: {
           ...pricing,
@@ -250,6 +259,15 @@ function migrateLegacyReferrals(legacy: LegacyReferralDiscount[]): ReferralAmoun
     if (match && !amounts[match[0]]) amounts[match[0]] = r.amount;
   }
   return amounts;
+}
+
+// 紹介特典がまだ無い保存データ向けの初期化。
+// 当校には生協・グリーンキャンパスの特典を初期設定し、他校は従来の割引額を「紹介割引」1行として引き継ぐ。
+function migrateToReferralPerks(isTarget: boolean, amounts: ReferralAmounts): ReferralPerks {
+  if (isTarget) return defaultTargetReferralPerks();
+  const fromAmount = (type: "coop" | "greenCampus") =>
+    amounts[type] ? [{ id: `${type}-perk-1`, text: "紹介割引", discount: amounts[type] }] : [];
+  return { coop: fromAmount("coop"), greenCampus: fromAmount("greenCampus") };
 }
 
 function normalizeApplicability(flags?: Partial<ApplicabilityFlags>): ApplicabilityFlags {

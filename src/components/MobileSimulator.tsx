@@ -549,6 +549,8 @@ function Result({
               </ul>
             </details>
 
+            <PerkList perks={target.result.perks} />
+
             <Notes notes={target.result.notes} />
           </div>
         </section>
@@ -603,6 +605,7 @@ function Result({
                             </li>
                           ))}
                         </ul>
+                        <PerkList perks={result.perks} />
                         <Notes notes={result.notes} />
                       </details>
                     )}
@@ -655,5 +658,24 @@ function Notes({ notes }: { notes: string[] }) {
         <li key={i}>{note}</li>
       ))}
     </ul>
+  );
+}
+
+function PerkList({ perks }: { perks: string[] }) {
+  if (perks.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 px-4 py-3 text-white shadow-sm">
+      <p className="text-sm font-black">🎁 ご紹介特典（{perks.length}つ）</p>
+      <ol className="mt-2 space-y-1.5">
+        {perks.map((perk, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm font-bold">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-black text-orange-600">
+              {i + 1}
+            </span>
+            <span>{perk}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

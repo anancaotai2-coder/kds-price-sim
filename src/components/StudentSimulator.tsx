@@ -194,6 +194,8 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
               <PriceBlock label="MT（マニュアル）" total={mt.total} isCheapest={isCheapestMt} breakdown={mt.breakdown} />
             </div>
 
+            <PerkList perks={at.perks} />
+
             {(() => {
               const notes = [...new Set([...at.notes, ...mt.notes])];
               return notes.length > 0 ? (
@@ -313,6 +315,20 @@ function PriceBlock({
           ))}
         </ul>
       </details>
+    </div>
+  );
+}
+
+function PerkList({ perks }: { perks: string[] }) {
+  if (perks.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-xl border border-dashed border-orange-300 bg-orange-50/70 px-4 py-3">
+      <p className="text-xs font-bold text-orange-700">🎁 紹介特典（{perks.length}つ）</p>
+      <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-xs font-medium text-orange-800">
+        {perks.map((perk, i) => (
+          <li key={i}>{perk}</li>
+        ))}
+      </ol>
     </div>
   );
 }

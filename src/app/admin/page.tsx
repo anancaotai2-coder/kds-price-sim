@@ -5,12 +5,16 @@ import {
   AnxietyScenario,
   ApplicabilityFlags,
   PriceData,
+  PERK_REFERRAL_TYPES,
+  PerkReferralType,
   REFERRAL_TYPES,
+  ReferralPerk,
   School,
   SchoolCampaign,
   SchoolPricing,
   createBlankCampaign,
   createBlankSchool,
+  isPerkReferralType,
 } from "@/lib/pricing";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -67,6 +71,11 @@ export default function AdminPage() {
   function removeCampaign(schoolId: string, campaignId: string) {
     const school = data!.schools.find((s) => s.id === schoolId)!;
     updateSchool(schoolId, { campaigns: school.campaigns.filter((c) => c.id !== campaignId) });
+  }
+
+  function updatePerks(schoolId: string, type: PerkReferralType, perks: ReferralPerk[]) {
+    const school = data!.schools.find((s) => s.id === schoolId)!;
+    updateSchool(schoolId, { referralPerks: { ...school.referralPerks, [type]: perks } });
   }
 
   function updateScenario(patch: Partial<AnxietyScenario>) {
@@ -295,7 +304,7 @@ export default function AdminPage() {
                   紹介割引（紹介の種類ごとの割引額。0円の種類はこの学校では割引なし）
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {REFERRAL_TYPES.map(({ id, label }) => (
+                  {REFERRAL_TYPES.filter(({ id }) => !isPerkReferralType(id)).map(({ id, label }) => (
                     <NumberField
                       key={id}
                       label={label}
@@ -304,6 +313,16 @@ export default function AdminPage() {
                       onChange={(v) =>
                         updateSchool(school.id, { referralAmounts: { ...school.referralAmounts, [id]: v } })
                       }
+                    />
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {PERK_REFERRAL_TYPES.map((type) => (
+                    <ReferralPerksEditor
+                      key={type}
+                      label={REFERRAL_TYPES.find((r) => r.id === type)!.label}
+                      perks={school.referralPerks[type]}
+                      onChange={(perks) => updatePerks(school.id, type, perks)}
                     />
                   ))}
                 </div>
@@ -470,6 +489,67 @@ function NumberField({
         <span className="text-slate-400">{unit}</span>
       </div>
     </label>
+  );
+}
+
+// 大学生協・グリーンキャンパスの紹介特典。特典ごとに自由な文言と、料金から引く額（0円なら表示のみ）を書ける。
+function ReferralPerksEditor({
+  label,
+  perks,
+  onChange,
+}: {
+  label: string;
+  perks: ReferralPerk[];
+  onChange: (perks: ReferralPerk[]) => void;
+}) {
+  const update = (id: string, patch: Partial<ReferralPerk>) =>
+    onChange(perks.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <p className="text-xs font-semibold text-slate-700">{label}の特典</p>
+      <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
+        特典の内容は自由に書けます。「割引額」に入れた金額だけ料金から差し引かれます（0円なら表示のみ）。
+      </p>
+      {perks.length === 0 && <p className="mb-2 text-xs text-slate-400">特典なし（この学校では対象外）</p>}
+      <ol className="flex flex-col gap-2">
+        {perks.map((perk, i) => (
+          <li key={perk.id} className="flex items-start gap-2">
+            <span className="mt-2 w-4 shrink-0 text-xs font-bold text-slate-400">{i + 1}.</span>
+            <div className="grid flex-1 grid-cols-[1fr_7rem] gap-2">
+              <input
+                type="text"
+                value={perk.text}
+                placeholder="例：2万円分の電子マネーをチャージ"
+                onChange={(e) => update(perk.id, { text: e.target.value })}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none"
+              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={perk.discount}
+                  title="割引額"
+                  onChange={(e) => update(perk.id, { discount: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none"
+                />
+                <span className="text-xs text-slate-400">円引</span>
+              </div>
+            </div>
+            <button
+              onClick={() => onChange(perks.filter((p) => p.id !== perk.id))}
+              className="mt-1.5 shrink-0 rounded px-1.5 text-xs text-red-500 hover:bg-red-50"
+            >
+              削除
+            </button>
+          </li>
+        ))}
+      </ol>
+      <button
+        onClick={() => onChange([...perks, { id: uid("perk"), text: "", discount: 0 }])}
+        className="mt-2 text-xs font-medium text-emerald-700 hover:underline"
+      >
+        ＋ 特典を追加
+      </button>
+    </div>
   );
 }
 
