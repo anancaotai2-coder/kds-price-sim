@@ -9,12 +9,13 @@ import {
   ReferralType,
   School,
   SchoolCampaign,
+  allAudiences,
   blankReferralAmounts,
   defaultApplicability,
   defaultTargetReferralPerks,
 } from "./pricing";
 
-type LegacyCampaign = Omit<SchoolCampaign, "id" | "enabled" | "applicability">;
+type LegacyCampaign = Omit<SchoolCampaign, "id" | "enabled" | "applicability" | "audiences">;
 // 旧形式の紹介割引（学校ごとに自由な名前で登録していたもの）。
 type LegacyReferralDiscount = { id: string; name: string; amount: number };
 
@@ -220,9 +221,15 @@ function normalize(data: PriceData): PriceData {
       const campaigns: SchoolCampaign[] = (
         school.campaigns ??
         (legacy && (legacy.label || legacy.freeCouponCount || legacy.freeRetestCount || legacy.extraDiscount)
-          ? [{ id: `${school.id}-campaign-1`, enabled: true, ...legacy, applicability: defaultApplicability() }]
+          ? [{ id: `${school.id}-campaign-1`, enabled: true, ...legacy, applicability: defaultApplicability(), audiences: allAudiences() }]
           : [])
-      ).map((c) => ({ ...c, applicability: normalizeApplicability(c.applicability), note: c.note ?? "" }));
+      ).map((c) => ({
+        ...c,
+        applicability: normalizeApplicability(c.applicability),
+        // 対象者が未設定の既存キャンペーンは、これまでどおり全員に適用する。
+        audiences: { ...allAudiences(), ...c.audiences },
+        note: c.note ?? "",
+      }));
       const referralAmounts = school.referralAmounts
         ? { ...blankReferralAmounts(), ...school.referralAmounts }
         : migrateLegacyReferrals(legacyReferrals ?? []);

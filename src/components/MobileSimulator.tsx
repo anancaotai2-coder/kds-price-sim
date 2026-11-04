@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  ATTRIBUTES,
   Attribute,
   GroupSize,
   LicenseType,
@@ -81,13 +82,10 @@ function buildQuestions(data: PriceData): Question[] {
     },
     {
       key: "attribute",
-      title: "あなたは学生ですか？",
-      description: "大学・専門学校・高校などに在学中の方は「学生」を選んでください。",
+      title: "あなたにあてはまるものは？",
+      description: "入校時点で在学中の学校を選んでください。",
       summaryLabel: "区分",
-      options: [
-        { value: "student", label: "学生" },
-        { value: "general", label: "一般（学生以外）" },
-      ],
+      options: ATTRIBUTES.map(({ id, label }) => ({ value: id, label })),
     },
     {
       key: "hasReferral",
@@ -462,7 +460,7 @@ function Result({
 
   const rows = useMemo(() => {
     const choice: StudentChoice = {
-      attribute: answers.attribute ?? "general",
+      attribute: answers.attribute ?? "worker",
       referralType: answers.hasReferral ? answers.referralType : null,
       groupSize: answers.groupSize ?? "none",
       quick: answers.quick ?? "none",

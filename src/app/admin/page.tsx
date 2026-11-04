@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
+  ATTRIBUTES,
   AnxietyScenario,
   ApplicabilityFlags,
+  AudienceFlags,
   PriceData,
   PERK_REFERRAL_TYPES,
   PerkReferralType,
@@ -421,6 +423,13 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="mt-2">
+                    <p className="mb-1 text-xs font-medium text-slate-500">対象者（チェックした区分の生徒にだけ適用）</p>
+                    <AudienceEditor
+                      value={campaign.audiences}
+                      onChange={(v) => updateCampaign(school.id, campaign.id, { audiences: v })}
+                    />
+                  </div>
+                  <div className="mt-2">
                     <p className="mb-1 text-xs font-medium text-slate-500">適用する条件</p>
                     <ApplicabilityEditor
                       value={campaign.applicability}
@@ -573,6 +582,26 @@ function CampaignCountBadge({ count }: { count: number }) {
     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-400">
       キャンペーンなし
     </span>
+  );
+}
+
+function AudienceEditor({ value, onChange }: { value: AudienceFlags; onChange: (v: AudienceFlags) => void }) {
+  const none = ATTRIBUTES.every(({ id }) => !value[id]);
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {ATTRIBUTES.map(({ id, label }) => (
+        <label key={id} className="flex items-center gap-1.5 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={value[id]}
+            onChange={(e) => onChange({ ...value, [id]: e.target.checked })}
+            className="h-3.5 w-3.5 accent-emerald-700"
+          />
+          {label}
+        </label>
+      ))}
+      {none && <span className="text-xs font-medium text-red-600">対象者が選ばれていないため、誰にも適用されません</span>}
+    </div>
   );
 }
 

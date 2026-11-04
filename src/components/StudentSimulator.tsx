@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  ATTRIBUTES,
   Attribute,
   GroupSize,
   PriceData,
@@ -21,7 +22,7 @@ function formatYen(amount: number): string {
 const QUICK_ORDER: Exclude<QuickPlan, "none">[] = ["quick20", "quick30"];
 
 export default function StudentSimulator({ data }: { data: PriceData }) {
-  const [attribute, setAttribute] = useState<Attribute>("general");
+  const [attribute, setAttribute] = useState<Attribute>("worker");
   const [hasReferral, setHasReferral] = useState(false);
   const [referralType, setReferralType] = useState<ReferralType | null>(null);
   const [groupSize, setGroupSize] = useState<GroupSize>("none");
@@ -74,10 +75,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <p className="mb-3 text-sm font-semibold text-slate-700">1. あなたについて教えてください</p>
         <SegmentedControl
-          options={[
-            ["general", "一般"],
-            ["student", "学生"],
-          ]}
+          options={ATTRIBUTES.map(({ id, label }) => [id, label] as [Attribute, string])}
           value={attribute}
           onChange={setAttribute}
         />

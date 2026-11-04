@@ -3,7 +3,26 @@ export type SchoolId = string;
 export type PatternId = "fast" | "normal";
 export type QuickPlan = "none" | "quick20" | "quick30";
 export type LicenseType = "AT" | "MT";
-export type Attribute = "general" | "student";
+// 生徒の区分。高校生・大学生・専門学生は「学生」として学生割引・学生の夜間料金無料の対象になる。
+export type Attribute = "highSchool" | "university" | "vocational" | "worker";
+
+export const ATTRIBUTES: { id: Attribute; label: string }[] = [
+  { id: "highSchool", label: "高校生" },
+  { id: "university", label: "大学生" },
+  { id: "vocational", label: "専門学生" },
+  { id: "worker", label: "社会人・その他" },
+];
+
+export function isStudent(attribute: Attribute): boolean {
+  return attribute !== "worker";
+}
+
+// キャンペーンの対象者。区分ごとに ON/OFF する。
+export type AudienceFlags = Record<Attribute, boolean>;
+
+export function allAudiences(): AudienceFlags {
+  return { highSchool: true, university: true, vocational: true, worker: true };
+}
 
 // キャンペーン・学割の適用先。「最短プラン」「一般プラン」「安心パック利用時」を
 // それぞれ独立に ON/OFF できる。安心パックは最短・一般どちらにも付けられる横断オプションなので、
@@ -71,6 +90,8 @@ export interface SchoolCampaign {
   freeRetestCount: number;
   extraDiscount: number;
   applicability: ApplicabilityFlags;
+  // 対象者（高校生・大学生など）。対象外の区分の生徒にはこのキャンペーンは適用されない。
+  audiences: AudienceFlags;
   note: string;
 }
 
@@ -214,6 +235,7 @@ export function createBlankCampaign(id: string): SchoolCampaign {
     freeRetestCount: 0,
     extraDiscount: 0,
     applicability: defaultApplicability(),
+    audiences: allAudiences(),
     note: "",
   };
 }
@@ -259,7 +281,7 @@ export function calcSchoolPrice(
   const p = school.pricing;
   const safetyOn = safetyPack.enabled;
   const activeCampaigns = school.campaigns.filter(
-    (c) => c.enabled && isApplicable(c.applicability, pattern, safetyOn)
+    (c) => c.enabled && c.audiences[attribute] && isApplicable(c.applicability, pattern, safetyOn)
   );
   const couponCount = activeCampaigns.reduce((sum, c) => sum + c.freeCouponCount, 0);
   const retestCount = activeCampaigns.reduce((sum, c) => sum + c.freeRetestCount, 0);
@@ -332,13 +354,13 @@ export function calcSchoolPrice(
   if (night && p.nightSurcharge) {
     breakdown.push({ label: "夜間料金加算", amount: p.nightSurcharge });
     // 学生の夜間料金無料は、加算を消すのではなく同額の割引として見せる（割引欄に表示されるように）。
-    if (attribute === "student" && p.nightFreeForStudents) {
+    if (isStudent(attribute) && p.nightFreeForStudents) {
       breakdown.push({ label: "学生 夜間料金無料", amount: -p.nightSurcharge });
     }
   }
 
   if (
-    attribute === "student" &&
+    isStudent(attribute) &&
     p.studentDiscount &&
     isApplicable(p.studentDiscountApplicability, pattern, safetyOn)
   ) {
