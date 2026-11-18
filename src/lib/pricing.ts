@@ -52,7 +52,12 @@ export function defaultApplicability(): ApplicabilityFlags {
 export interface SchoolPricing {
   baseAT: number;
   baseMT: number;
+  // 夜間料金。nightPerLesson が true なら「1時限あたりの単価」、false なら一律の加算額。
   nightSurcharge: number;
+  // 夜間料金が1時限単位の学校（例：KDSは1時限1,100円）。単価 × 夜間の時限数（AT/MT別）で計算する。
+  nightPerLesson: boolean;
+  nightLessonCountAT: number;
+  nightLessonCountMT: number;
   // 学生は夜間料金が無料になる学校かどうか。
   nightFreeForStudents: boolean;
   // 短期集中コース（クイック20・クイック30）の加算額。
@@ -200,6 +205,9 @@ export function createBlankSchool(id: string): School {
       baseAT: 0,
       baseMT: 0,
       nightSurcharge: 0,
+      nightPerLesson: false,
+      nightLessonCountAT: 0,
+      nightLessonCountMT: 0,
       nightFreeForStudents: true,
       quick20Surcharge: 0,
       quick30Surcharge: 0,
@@ -351,11 +359,16 @@ export function calcSchoolPrice(
     breakdown.push({ label: "原付講習", amount: p.mopedFee });
   }
 
-  if (night && p.nightSurcharge) {
-    breakdown.push({ label: "夜間料金加算", amount: p.nightSurcharge });
+  const nightLessons = license === "AT" ? p.nightLessonCountAT : p.nightLessonCountMT;
+  const nightAmount = p.nightPerLesson ? p.nightSurcharge * nightLessons : p.nightSurcharge;
+  if (night && nightAmount) {
+    breakdown.push({
+      label: p.nightPerLesson ? `夜間料金加算（${nightLessons}時限分）` : "夜間料金加算",
+      amount: nightAmount,
+    });
     // 学生の夜間料金無料は、加算を消すのではなく同額の割引として見せる（割引欄に表示されるように）。
     if (isStudent(attribute) && p.nightFreeForStudents) {
-      breakdown.push({ label: "学生 夜間料金無料", amount: -p.nightSurcharge });
+      breakdown.push({ label: "学生 夜間料金無料", amount: -nightAmount });
     }
   }
 

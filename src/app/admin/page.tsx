@@ -238,7 +238,18 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <NumberField label="通常料金 AT" unit="円" value={school.pricing.baseAT} onChange={(v) => updatePricing(school.id, { baseAT: v })} />
                 <NumberField label="通常料金 MT" unit="円" value={school.pricing.baseMT} onChange={(v) => updatePricing(school.id, { baseMT: v })} />
-                <NumberField label="夜間料金加算" unit="円" value={school.pricing.nightSurcharge} onChange={(v) => updatePricing(school.id, { nightSurcharge: v })} />
+                <NumberField
+                  label={school.pricing.nightPerLesson ? "夜間料金（1時限あたり）" : "夜間料金加算"}
+                  unit="円"
+                  value={school.pricing.nightSurcharge}
+                  onChange={(v) => updatePricing(school.id, { nightSurcharge: v })}
+                />
+                {school.pricing.nightPerLesson && (
+                  <>
+                    <NumberField label="夜間の時限数（AT）" unit="時限" value={school.pricing.nightLessonCountAT} onChange={(v) => updatePricing(school.id, { nightLessonCountAT: v })} />
+                    <NumberField label="夜間の時限数（MT）" unit="時限" value={school.pricing.nightLessonCountMT} onChange={(v) => updatePricing(school.id, { nightLessonCountMT: v })} />
+                  </>
+                )}
                 <NumberField label="短期集中コース加算（クイック20）" unit="円" value={school.pricing.quick20Surcharge} onChange={(v) => updatePricing(school.id, { quick20Surcharge: v })} />
                 <NumberField label="短期集中コース加算（クイック30）" unit="円" value={school.pricing.quick30Surcharge} onChange={(v) => updatePricing(school.id, { quick30Surcharge: v })} />
                 <NumberField label="安心パック加算" unit="円" value={school.pricing.safeCourseSurcharge ?? 0} onChange={(v) => updatePricing(school.id, { safeCourseSurcharge: v })} />
@@ -252,6 +263,15 @@ export default function AdminPage() {
                   className="h-4 w-4 accent-emerald-700"
                 />
                 学生は夜間料金を無料にする
+              </label>
+              <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={school.pricing.nightPerLesson}
+                  onChange={(e) => updatePricing(school.id, { nightPerLesson: e.target.checked })}
+                  className="h-4 w-4 accent-emerald-700"
+                />
+                夜間料金を1時限単位で計算する（単価 × 夜間の時限数）
               </label>
               <div className="mt-2">
                 <TextField
