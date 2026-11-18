@@ -126,6 +126,15 @@ export function isPerkReferralType(type: ReferralType): type is PerkReferralType
   return (PERK_REFERRAL_TYPES as ReferralType[]).includes(type);
 }
 
+// 大学生協・グリーンキャンパスからの紹介は学生しか対象にならないので、社会人には選択肢として出さない。
+export function referralTypesFor(attribute: Attribute): { id: ReferralType; label: string }[] {
+  return REFERRAL_TYPES.filter(({ id }) => isStudent(attribute) || !isPerkReferralType(id));
+}
+
+export function isReferralAvailable(attribute: Attribute, type: ReferralType): boolean {
+  return isStudent(attribute) || !isPerkReferralType(type);
+}
+
 export interface ReferralPerk {
   id: string;
   text: string;
@@ -280,7 +289,10 @@ export function calcSchoolPrice(
   choice: StudentChoice,
   scenario: AnxietyScenario
 ): PatternResult {
-  const { attribute, referralType, groupSize, quick, moped, night, safetyPack } = choice;
+  const { attribute, groupSize, quick, moped, night, safetyPack } = choice;
+  // 対象外の紹介（社会人の大学生協・グリーンキャンパスなど）は無かったものとして扱う。
+  const referralType =
+    choice.referralType && isReferralAvailable(attribute, choice.referralType) ? choice.referralType : null;
   const pattern: PatternId = quick === "none" ? "normal" : "fast";
   const p = school.pricing;
   const safetyOn = safetyPack.enabled;

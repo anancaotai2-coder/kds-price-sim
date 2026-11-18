@@ -14,6 +14,7 @@ import {
   ReferralType,
   StudentChoice,
   calcSchoolPrice,
+  isReferralAvailable,
 } from "@/lib/pricing";
 
 function formatYen(amount: number): string {
@@ -66,6 +67,8 @@ interface Question {
   grid?: boolean;
   // 前の回答によって出す・出さないが変わる質問。
   when?: (a: Answers) => boolean;
+  // 前の回答によって出す・出さないが変わる選択肢。
+  optionFilter?: (a: Answers, value: QuestionOption["value"]) => boolean;
 }
 
 function buildQuestions(data: PriceData): Question[] {
@@ -102,6 +105,8 @@ function buildQuestions(data: PriceData): Question[] {
       summaryLabel: "紹介の種類",
       when: (a) => a.hasReferral === true,
       options: REFERRAL_TYPES.map(({ id, label }) => ({ value: id, label })),
+      // 大学生協・グリーンキャンパスは学生のみ。
+      optionFilter: (a, value) => isReferralAvailable(a.attribute ?? "worker", value as ReferralType),
     },
     {
       key: "groupSize",
@@ -193,6 +198,10 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
 
   const answer = (q: Question, value: QuestionOption["value"]) => {
     const updated = { ...answers, [q.key]: value };
+    // 区分を社会人に変えたら、学生限定の紹介（大学生協・グリーンキャンパス）は選び直してもらう。
+    if (updated.referralType && !isReferralAvailable(updated.attribute ?? "worker", updated.referralType)) {
+      updated.referralType = null;
+    }
     setAnswers(updated);
     const index = questions.filter((x) => !x.when || x.when(updated)).findIndex((x) => x.key === q.key);
     setScreen(nextScreen(updated, index));
@@ -239,7 +248,7 @@ export default function MobileSimulator({ data }: { data: PriceData }) {
         {q.description && <p className="mt-2 text-sm leading-relaxed text-slate-500">{q.description}</p>}
 
         <div className={q.grid ? "mt-6 grid grid-cols-4 gap-2" : "mt-6 flex flex-col gap-3"}>
-          {q.options.map((o) => {
+          {q.options.filter((o) => !q.optionFilter || q.optionFilter(answers, o.value)).map((o) => {
             const selected = answers[q.key] === o.value;
             const tone = selected
               ? "border-orange-500 bg-orange-50 shadow-orange-100"

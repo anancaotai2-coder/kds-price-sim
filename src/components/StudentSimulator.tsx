@@ -9,7 +9,8 @@ import {
   QUICK_PLAN_LABELS,
   QuickPlan,
   PerkResult,
-  REFERRAL_TYPES,
+  referralTypesFor,
+  isReferralAvailable,
   ReferralType,
   StudentChoice,
   calcSchoolPrice,
@@ -77,7 +78,11 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
         <SegmentedControl
           options={ATTRIBUTES.map(({ id, label }) => [id, label] as [Attribute, string])}
           value={attribute}
-          onChange={setAttribute}
+          onChange={(a) => {
+            setAttribute(a);
+            // 社会人に変えたら、学生限定の紹介（大学生協・グリーンキャンパス）の選択を外す。
+            if (referralType && !isReferralAvailable(a, referralType)) setReferralType(null);
+          }}
         />
 
         <p className="mb-3 mt-6 text-sm font-semibold text-slate-700">2. 紹介者はいらっしゃいますか？</p>
@@ -91,7 +96,7 @@ export default function StudentSimulator({ data }: { data: PriceData }) {
         />
         {hasReferral && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {REFERRAL_TYPES.map(({ id, label }) => (
+            {referralTypesFor(attribute).map(({ id, label }) => (
               <ChipButton key={id} active={referralType === id} onClick={() => setReferralType(id)}>
                 {label}
               </ChipButton>
