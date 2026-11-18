@@ -244,12 +244,6 @@ export default function AdminPage() {
                   value={school.pricing.nightSurcharge}
                   onChange={(v) => updatePricing(school.id, { nightSurcharge: v })}
                 />
-                {school.pricing.nightPerLesson && (
-                  <>
-                    <NumberField label="夜間の時限数（AT）" unit="時限" value={school.pricing.nightLessonCountAT} onChange={(v) => updatePricing(school.id, { nightLessonCountAT: v })} />
-                    <NumberField label="夜間の時限数（MT）" unit="時限" value={school.pricing.nightLessonCountMT} onChange={(v) => updatePricing(school.id, { nightLessonCountMT: v })} />
-                  </>
-                )}
                 <NumberField label="短期集中コース加算（クイック20）" unit="円" value={school.pricing.quick20Surcharge} onChange={(v) => updatePricing(school.id, { quick20Surcharge: v })} />
                 <NumberField label="短期集中コース加算（クイック30）" unit="円" value={school.pricing.quick30Surcharge} onChange={(v) => updatePricing(school.id, { quick30Surcharge: v })} />
                 <NumberField label="安心パック加算" unit="円" value={school.pricing.safeCourseSurcharge ?? 0} onChange={(v) => updatePricing(school.id, { safeCourseSurcharge: v })} />
@@ -271,7 +265,7 @@ export default function AdminPage() {
                   onChange={(e) => updatePricing(school.id, { nightPerLesson: e.target.checked })}
                   className="h-4 w-4 accent-emerald-700"
                 />
-                夜間料金を1時限単位で計算する（単価 × 夜間の時限数）
+                夜間料金は1時限単位（合計には含めず「夜間料金1時限あたり◯円かかります」と注釈で表示）
               </label>
               <div className="mt-2">
                 <TextField
